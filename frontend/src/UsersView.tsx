@@ -9,6 +9,7 @@ export default function UsersView() {
     const [users, setUsers] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [generating, setGenerating] = useState(false)
+    const [serverAdvancing, setServerAdvancing] = useState(false)
     const [showCreate, setShowCreate] = useState(false)
     const [editUser, setEditUser] = useState<any | null>(null)
     const [form, setForm] = useState({ username: '', signature: '', personality: '', forum_dedication: 0.5, active_start: 0, active_end: 23 })
@@ -43,10 +44,11 @@ export default function UsersView() {
                 const s = await fetchSimStatus(simId)
                 if (!mounted) return
                 setGenerating(!!s.generating)
+                setServerAdvancing(!!s.advancing)
             } catch (e) { /* ignore */ }
         }
         poll()
-        const id = setInterval(poll, 15000)
+        const id = setInterval(poll, 8000)
         return () => { mounted = false; clearInterval(id) }
     }, [simId])
 
@@ -125,8 +127,8 @@ export default function UsersView() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <h2>Users</h2>
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setShowCreate(true)} disabled={loading || generating}>Add User</button>
-                        <button onClick={generateOne} disabled={loading || generating}>
+                        <button onClick={() => setShowCreate(true)} disabled={loading || generating || serverAdvancing}>Add User</button>
+                        <button onClick={generateOne} disabled={loading || generating || serverAdvancing}>
                             Generate (LLM)
                             {generating && <span className="spinner" aria-hidden="true" style={{ marginLeft: 6 }} />}
                         </button>
@@ -139,8 +141,8 @@ export default function UsersView() {
                             <strong>{u.username}</strong> <span>({u.forum_dedication})</span>
                             <div>{u.signature}</div>
                             <div style={{ marginTop: 6 }}>
-                                <button onClick={() => setEditUser({ ...u })}>Edit</button>
-                                <button onClick={() => doDelete(u.id)} style={{ marginLeft: 8 }}>Delete</button>
+                                <button disabled={loading || generating || serverAdvancing} onClick={() => setEditUser({ ...u })}>Edit</button>
+                                <button disabled={loading || generating || serverAdvancing} onClick={() => doDelete(u.id)} style={{ marginLeft: 8 }}>Delete</button>
                             </div>
                         </li>
                     ))}

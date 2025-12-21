@@ -4,6 +4,7 @@ import './styles.css'
 import { fetchSimulations, createSimulation, fetchForum } from './api'
 import { formatDisplayDate } from './date'
 import Header from './components/Header'
+import ScrollToTop from './ScrollToTop'
 import SimulationView from './SimulationView'
 import ThreadView from './ThreadView'
 import UsersView from './UsersView'
@@ -12,14 +13,14 @@ type Sim = { id: number; users: number; threads: number; posts: number }
 
 function Home() {
   const [sims, setSims] = useState<Sim[]>([])
-  const [simNames, setSimNames] = useState<Record<number,string>>({})
-  const [simMeta, setSimMeta] = useState<Record<number, {name:string; created_date?:string}>>({})
+  const [simNames, setSimNames] = useState<Record<number, string>>({})
+  const [simMeta, setSimMeta] = useState<Record<number, { name: string; created_date?: string }>>({})
   const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ name: '', purpose: '', topic: '' })
   const [formCreatedDate, setFormCreatedDate] = useState<string | undefined>(undefined)
 
-  
+
   const navigate = useNavigate()
 
   const load = async () => {
@@ -28,26 +29,26 @@ function Home() {
       const data = await fetchSimulations()
       setSims(data || [])
       // fetch forum names for each simulation (fire in parallel)
-        try{
+      try {
         const metas = await Promise.all((data || []).map(async (s: any) => {
-          try{
+          try {
             const f = await fetchForum(s.id)
             return [s.id, { name: f.name, created_date: f.created_date }] as const
-          }catch(e){
+          } catch (e) {
             return [s.id, { name: '' }] as const
           }
         }))
-        const map: Record<number,{name:string; created_date?:string}> = {}
-        for(const [id, m] of metas) map[id] = m
+        const map: Record<number, { name: string; created_date?: string }> = {}
+        for (const [id, m] of metas) map[id] = m
         setSimMeta(map)
         // also keep backward-compatible simNames mapping
-        const nameMap: Record<number,string> = {}
-        for(const id of Object.keys(map)){
+        const nameMap: Record<number, string> = {}
+        for (const id of Object.keys(map)) {
           const nid = Number(id)
           nameMap[nid] = map[nid]?.name || ''
         }
         setSimNames(nameMap)
-      }catch(e){
+      } catch (e) {
         console.error('failed to load forum names', e)
       }
     } catch (err) {
@@ -91,19 +92,19 @@ function Home() {
             <h2>Create Simulation</h2>
             <label>
               Forum name
-              <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. World of Warcraft Forum" />
+              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. World of Warcraft Forum" />
               <button className="hint" title="A short name for your forum">?</button>
             </label>
 
             <label>
               Purpose (short answer)
-              <input value={form.purpose} onChange={e => setForm({...form, purpose: e.target.value})} placeholder="What is this forum for?" />
+              <input value={form.purpose} onChange={e => setForm({ ...form, purpose: e.target.value })} placeholder="What is this forum for?" />
               <button className="hint" title="One-sentence purpose of the forum">?</button>
             </label>
 
             <label>
               Topic (long answer)
-              <textarea value={form.topic} onChange={e => setForm({...form, topic: e.target.value})} placeholder="Describe the forum topic in more detail" />
+              <textarea value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })} placeholder="Describe the forum topic in more detail" />
               <button className="hint" title="Longer description of the forum topic">?</button>
             </label>
 
@@ -136,15 +137,16 @@ function Home() {
   )
 }
 
-function App(){
+function App() {
   return (
     <main className="page-wrapper">
+      <ScrollToTop />
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/simulations/:simId" element={<SimulationView/>} />
-        <Route path="/simulations/:simId/threads/:threadId" element={<ThreadView/>} />
-        <Route path="/simulations/:simId/users" element={<UsersView/>} />
+        <Route path="/simulations/:simId" element={<SimulationView />} />
+        <Route path="/simulations/:simId/threads/:threadId" element={<ThreadView />} />
+        <Route path="/simulations/:simId/users" element={<UsersView />} />
       </Routes>
     </main>
   )

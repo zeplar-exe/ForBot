@@ -8,15 +8,18 @@ from datetime import datetime
 from dataclasses import asdict
 from fastapi.middleware.cors import CORSMiddleware
 import json
+import os
 from pathlib import Path
 
 # Directory to persist simulation state
 STORAGE_DIR = Path(__file__).parent / "simulations"
 STORAGE_DIR.mkdir(exist_ok=True)
 
+LOG_FILE = "forbot.log"
+
 app = FastAPI(title="ForBot Simulation Server")
 
-LOG_FILE = "forbot.log"
+os.environ["OLLAMA_NUM_PARALLEL"] = "4"
 
 logging.basicConfig(
     level=logging.INFO,

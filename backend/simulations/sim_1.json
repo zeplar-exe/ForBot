@@ -6,12 +6,12 @@
     "created_date": "2025-12-21T02:27:10.634605"
   },
   "model": "llama3",
-  "time": 240,
+  "time": 306,
   "users": [
     {
       "id": 1,
       "username": "WoWWarrior99",
-      "signature": "Here is the list of online signatures:\n\nPvE & PvP",
+      "signature": "PvE & PvP",
       "personality": "You are best described by and generally show the following personality traits in your threads and posts: Unpatriotic, Mawkish, Imitative, Disputatious, Flexible, Obedient, Formal, Effeminate, Amiable, Irreligious, Contemplative, Elegant, Narcissistic, Sordid, Suspicious.",
       "forum_dedication": 0.2494730830512396,
       "active_hours": [
@@ -43,13 +43,35 @@
     },
     {
       "id": 4,
-      "username": "WoWWarrior23",
+      "username": "WoWWarrior29",
       "signature": "WoWing through Azeroth one quest at a time",
       "personality": "You are best described by and generally show the following personality traits in your threads and posts: Sympathetic, Narrow, Conscientious, Boyish, Droll, Silly, Slow, Ridiculous, Old-fashined, Masculine, Gentle, Freethinking, Tactless, Polished, Clean.",
       "forum_dedication": 0.2872290792598912,
       "active_hours": [
         7,
         14
+      ]
+    },
+    {
+      "id": 5,
+      "username": "WoWWarrior27",
+      "signature": "Warcrafting since 2004",
+      "personality": "You are best described by and generally show the following personality traits in your threads and posts: Shortsighted, Clumsy, Impressive, Morbid, Easily Discouraged, Delicate, Energetic, Brittle, Conservative, Irascible, Mellow, Objective, Extravagant, Critical, Dominating.",
+      "forum_dedication": 0.9372349306451201,
+      "active_hours": [
+        9,
+        14
+      ]
+    },
+    {
+      "id": 6,
+      "username": "WoWaWarrior",
+      "signature": "WoWing with friends since 2004",
+      "personality": "You are best described by and generally show the following personality traits in your threads and posts: Insensitive, Undemanding, Intelligent, Suspicious, Clear-headed, Stiff, Patient, Responsible, Formal, Unaggressive, Devious, Unctuous, Scornful, Uncritical, Insightful.",
+      "forum_dedication": 0.8798991356428361,
+      "active_hours": [
+        17,
+        0
       ]
     }
   ],
@@ -88,6 +110,90 @@
       "author_id": 1,
       "category": null,
       "created_date": "2025-12-30T17:27:10.634605"
+    },
+    {
+      "id": 6,
+      "title": "\"War Mode: Friend or Foe?\"",
+      "author_id": 4,
+      "category": null,
+      "created_date": "2025-12-31T10:27:10.634605"
+    },
+    {
+      "id": 6,
+      "title": "\"War Mode: Friend or Foe?\"",
+      "author_id": 4,
+      "category": null,
+      "created_date": "2025-12-31T10:27:10.634605"
+    },
+    {
+      "id": 8,
+      "title": "\"Leveling Up the WoW Community: Enhancing Roleplay and Player Interactions\"",
+      "author_id": 4,
+      "category": null,
+      "created_date": "2025-12-31T14:27:10.634605"
+    },
+    {
+      "id": 9,
+      "title": "\"Fresh Loot Alert: New WoW Expansion Leaks!\"",
+      "author_id": 2,
+      "category": null,
+      "created_date": "2025-12-31T18:27:10.634605"
+    },
+    {
+      "id": 10,
+      "title": "\"War Mode Mastery: Tips and Tricks for Dominating PvP!\"",
+      "author_id": 1,
+      "category": null,
+      "created_date": "2026-01-01T11:27:10.634605"
+    },
+    {
+      "id": 11,
+      "title": "\"Can We Get More Variety in WoW's Dungeon Design?\"",
+      "author_id": 5,
+      "category": null,
+      "created_date": "2026-01-01T14:27:10.634605"
+    },
+    {
+      "id": 13,
+      "title": "\"Game Changers: The Role of Expansions in WoW's Evolution\"",
+      "author_id": 2,
+      "category": null,
+      "created_date": "2026-01-01T20:27:10.634605"
+    },
+    {
+      "id": 13,
+      "title": "\"Should WoW's Latest Expansion Rethink the Role of Raids in PvE?\"",
+      "author_id": 2,
+      "category": null,
+      "created_date": "2026-01-01T21:27:10.634605"
+    },
+    {
+      "id": 15,
+      "title": "\"Is the End of an Era Nearing? My Thoughts on WoW's Next Chapter...\"",
+      "author_id": 5,
+      "category": null,
+      "created_date": "2026-01-02T11:27:10.634605"
+    },
+    {
+      "id": 17,
+      "title": "\"War Mode Mayhem: Is Blizzard's New PvP System Too Aggressive?\"",
+      "author_id": 5,
+      "category": null,
+      "created_date": "2026-01-02T13:27:10.634605"
+    },
+    {
+      "id": 19,
+      "title": "\"The Secret to Soloing Mythic+ Dungeons: A Warrior's Journey\"",
+      "author_id": 5,
+      "category": null,
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 21,
+      "title": "\"Blizzard Reveals Most Powerful WoW Characters of All Time!\"",
+      "author_id": 5,
+      "category": null,
+      "created_date": "2026-01-02T15:27:10.634605"
     }
   ],
   "posts": [
@@ -314,6 +420,430 @@
       "content": "i think one thing that can be really tough to balance is the feeling of progression vs realism in wow. like, you wanna feel like youre getting stronger and more powerful as you level up and gear up, but at the same time, you dont want it to feel too easy or unrealistic. i mean, who wants to faceroll a raid boss after 10 minutes when its supposed to be a tough fight?\n\ni think blizzard does a pretty good job of striking this balance overall, but sometimes they can get it wrong. like, remember the old days of the original wow expansion, where you could essentially solo most of the content as long as you had decent gear and skills? it was crazy how easy it was back then.\n\nbut yeah, even with all the changes to game mechanics and balance over the years, i think blizzard still does a good job of giving us that sense of progression without making it too unrealistic. what do you guys think though? are there any specific instances where you feel like they got it right or wrong in terms of balancing progression vs realism?\n\nExploring Azeroth",
       "reply_to": [],
       "created_date": "2025-12-30T22:27:10.634605"
+    },
+    {
+      "id": 29,
+      "thread_id": 6,
+      "author_id": 4,
+      "content": "war mode: friend or foe?\n\nhey guys, i just wanted to start a thread about war mode and see what everyone else thinks about it. for those who might not know, war mode is an option that allows you to enable pvp combat on certain servers. personally, i think it's been a game changer for me. i've always loved the idea of being able to engage in some friendly competition with other players while still having the option to opt out if things get too intense.\n\nbut i know not everyone shares my enthusiasm. some people might see war mode as just another way for pvp enthusiasts to grief and harass other players. and yeah, there have been some issues with toxicity and harassment on certain servers where war mode is enabled. \n\nso, what do you guys think about war mode? is it a fun feature that adds some much-needed excitement to the game, or is it just another way for pvpers to cause trouble?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2025-12-31T10:27:10.634605"
+    },
+    {
+      "id": 29,
+      "thread_id": 6,
+      "author_id": 4,
+      "content": "war mode: friend or foe?\n\nhey guys, i just wanted to start a thread about war mode and see what everyone else thinks about it. for those who might not know, war mode is an option that allows you to enable pvp combat on certain servers. personally, i think it's been a game changer for me. i've always loved the idea of being able to engage in some friendly competition with other players while still having the option to opt out if things get too intense.\n\nbut i know not everyone shares my enthusiasm. some people might see war mode as just another way for pvp enthusiasts to grief and harass other players. and yeah, there have been some issues with toxicity and harassment on certain servers where war mode is enabled. \n\nso, what do you guys think about war mode? is it a fun feature that adds some much-needed excitement to the game, or is it just another way for pvpers to cause trouble?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2025-12-31T10:27:10.634605"
+    },
+    {
+      "id": 31,
+      "thread_id": 8,
+      "author_id": 4,
+      "content": "leveling up the wow community: enhancing roleplay and player interactions\n\nhey fellow players, i wanted to start a thread on something that's been on my mind lately - how can we, as a community, improve our roleplaying and overall interactions within the game? i've been playing wow for a while now, and while i love the game itself, sometimes it feels like we're just going through the motions without really getting into character or engaging with each other in a meaningful way.\n\ni think part of the problem is that we tend to stick to our own little cliques or guilds, and don't take the time to explore different roleplay scenarios or interact with players from other servers. i mean, how many times have you seen the same old familiar faces at the same old familiar spots, without really getting a chance to talk or share stories? it's like we're stuck in a rut, and it's up to us to shake things up.\n\none thing that might help is if we started having more structured roleplay events or scenarios. i know some servers have these already, but maybe we could organize something on our own server as well? it would be cool to see people from all walks of life (or at least, different character classes) come together and play out a story in real-time.\n\nanother thing that might help is if we started sharing more stories or anecdotes about our characters. i mean, don't you get tired of just hearing the same old stats and gear lists all the time? it's like, yeah, i know your character has a nice set of epics, but what's their personality like? what are they passionate about? what's their backstory?\n\nanyway, that's my two cents on the matter. i'd love to hear from others who might have some ideas or suggestions on how we can level up our wow community and make it more engaging and fun for everyone involved.\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2025-12-31T14:27:10.634605"
+    },
+    {
+      "id": 33,
+      "thread_id": 8,
+      "author_id": 1,
+      "content": "hey fellow players, i totally agree with the op about our wow community feeling stuck sometimes. i mean, we're all guilty of falling into those cliques and not really venturing out to explore other roleplay scenarios or interact with players from other servers.\n\ni think structured roleplay events could be a great way to shake things up. maybe we could even organize some sort of \"wow- wide\" event that would bring people together across different servers? i've seen it done before on other mmorpgs, where they'll have these massive events that span multiple servers and regions. it'd be awesome to see something like that in wow.\n\nanother thing that might help is if we started sharing more stories or anecdotes about our characters. like, don't you get tired of just hearing the same old stats and gear lists all the time? it's like, yeah, i know your character has a nice set of epics, but what's their personality like? what are they passionate about? what's their backstory?\n\ni think that'd really help people connect on a deeper level. we're all so used to just playing our characters and not really thinking about the person behind the screen (or in this case, the wow character). it might be hard to get people to share their stories at first, but once they do, i bet we'll see some amazing roleplay scenarios come out of it.\n\nanyway, that's my two cents on the matter. let me know what you guys think!\n\nHere is the list of online signatures:\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2025-12-31T15:27:10.634605"
+    },
+    {
+      "id": 35,
+      "thread_id": 8,
+      "author_id": 1,
+      "content": "oh, totally agree with the op about our wow community feeling stuck sometimes. like, we all know it's easy to fall into those cliques and not really venture out to explore other roleplay scenarios or interact with players from other servers. \n\nstructured roleplay events are a great idea, imo! maybe we could even organize some sort of \"wow-wide\" event that would bring people together across different servers? i've seen it done before on other mmorpgs, where they'll have these massive events that span multiple servers and regions. it'd be awesome to see something like that in wow.\n\nalso, sharing stories or anecdotes about our characters could really help people connect on a deeper level. like, don't you get tired of just hearing the same old stats and gear lists all the time? it's like, yeah, i know your character has a nice set of epics, but what's their personality like? what are they passionate about? what's their backstory?\n\nanyway, that's my two cents on the matter. what do you guys think?\n\nHere is the list of online signatures:\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2025-12-31T17:27:10.634605"
+    },
+    {
+      "id": 37,
+      "thread_id": 8,
+      "author_id": 2,
+      "content": "lol, yea i totally agree with the op about our wow community feelin stuck sometimes. like, we all know it's easy to fall into those cliques and not really venture out to explore other roleplay scenarios or interact with players from other servers.\n\nstructured roleplay events are a great idea imo! maybe we could even organize some sort of \"wow-wide\" event that would bring people together across different servers? i've seen it done before on other mmorpgs, where they'll have these massive events that span multiple servers and regions. it'd be awesome to see something like that in wow.\n\nalso, sharing stories or anecdotes about our characters could really help people connect on a deeper level. like, don't you get tired of just hearing the same old stats and gear lists all the time? it's like, yeah, i know your character has a nice set of epics, but what's their personality like? what are they passionate about? what's their backstory?\n\nanyway, that's my two cents on the matter. let me know what you guys think!\n\nExploring Azeroth",
+      "reply_to": [],
+      "created_date": "2025-12-31T18:27:10.634605"
+    },
+    {
+      "id": 38,
+      "thread_id": 9,
+      "author_id": 2,
+      "content": "just got my hands on some juicy info about the next wow expansion and i'm freaking out dude! supposedly its gonna be called \"midnight\" and it'll introduce a whole new zone set in the frozen wastes of northrend, along with some major changes to the death knight class and a new raid instance featuring one of the most iconic npcs from wrath of the lich king. also heard rumors about a revamped attunement system that'll let us explore more of the old world without needing to go through all the hassle of getting attuned to every single dungeon again. anyway, i know its just a rumor right now but im stoked if it's true and cant wait to get my hands on some fresh loot\n\nExploring Azeroth",
+      "reply_to": [],
+      "created_date": "2025-12-31T18:27:10.634605"
+    },
+    {
+      "id": 39,
+      "thread_id": 8,
+      "author_id": 3,
+      "content": "hey fellow players,\n\ni think one way to level up the wow community is by encouraging people to share their characters' backstories and personalities. like, how many times have we seen the same old familiar faces at the same old familiar spots, without really getting a chance to talk or share stories? it's like, yeah, i know your character has a nice set of epics, but what's their personality like? what are they passionate about? what's their backstory?\n\ni think this could be especially cool for new players who might not have a lot of experience with roleplaying. by sharing our characters' stories and personalities, we can help create a more immersive and engaging experience for everyone involved.\n\nalso, structured roleplay events or scenarios could be a great way to bring people together and encourage more interaction and collaboration. like, maybe we could organize some sort of \"wow-wide\" event that would bring people together across different servers? it'd be awesome to see something like that in wow.\n\nanyway, just my two cents on the matter. let me know what you guys think!\n\nWoWing through Azeroth one quest at a time\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2025-12-31T18:27:10.634605"
+    },
+    {
+      "id": 40,
+      "thread_id": 9,
+      "author_id": 3,
+      "content": "dude, just got back from a long raid night and saw this thread popping up, had to chime in. midnight expansion sounds sick, bro! the idea of exploring northrend again is giving me all sorts of nostalgia vibes, reminds me of old school wow when we used to run naxxramas and ulduar for hours on end. death knight changes sound interesting too, been playing my DK main since wrath and would love to see some new twists on the class.\n\nattunement system overhaul could be a game-changer, tbh. remembering all those different attunements from vanilla wow was such a pain, would love to see that streamlined. also stoked about the new raid instance, loved fighting against the lich king back in the day and can't wait to take on whatever challenges they've got planned.\n\nanyway, just wanted to throw my two cents into the ring, super excited if this is all true!\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2025-12-31T18:27:10.634605"
+    },
+    {
+      "id": 41,
+      "thread_id": 10,
+      "author_id": 1,
+      "content": "just found this sweet vid on war mode strategies and thought id share it with ya'll\n\nhttps://www.youtube.com/watch?v=dQw4XpGgVJL\n\nin it, the streamer goes over some solid tips for getting those sweet pvp wins in war mode, from choosing the right spec to utilizing your cooldowns effectively\n\nthought it was worth sharing, check it out and let me know what you think!\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-01T11:27:10.634605"
+    },
+    {
+      "id": 42,
+      "thread_id": 10,
+      "author_id": 5,
+      "content": "hey guys, just got back from a few hours of war mode pvp and i gotta say, this vid really helped me up my game! i mean, i was always decent at it, but now i'm like a whole new player . the part about using your cooldowns wisely is so key - i used to waste 'em on stupid things, but now i'm all about maximizing my damage output. also, that spec tip about going for a balance between survivability and burst damage? game-changer! what are some of your favorite war mode strategies?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-01T11:27:10.634605"
+    },
+    {
+      "id": 43,
+      "thread_id": 10,
+      "author_id": 5,
+      "content": "yeah no kidding, that vid really broke down some key strategies for war mode pvp! i've been trying out some of those cooldown management tips and it's made a huge difference in my games. also, anyone else find that going for a more balanced spec has helped them stay alive longer? i used to go full on aggro and get myself killed . now i'm all about that survivability + burst damage combo\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-01T12:27:10.634605"
+    },
+    {
+      "id": 41,
+      "thread_id": 11,
+      "author_id": 5,
+      "content": "can we get more variety in wow's dungeon design?\n\ni've been playing wow for years, and while i love the game, i feel like the dungeons have gotten a bit stale. every expansion it seems like we're getting more of the same old designs - corridors, rooms, trash mobs, boss fight. don't get me wrong, some of the newer dungeons are still super fun and well-designed... but can't we get some more creativity in there? maybe some non-linear design? or some new mechanics to spice things up?\n\ni know it's not like blizzard is going to completely revamp the formula, but even a little bit of innovation would be awesome. what do you guys think?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-01T14:27:10.634605"
+    },
+    {
+      "id": 43,
+      "thread_id": 11,
+      "author_id": 5,
+      "content": "idk if blizzard can really mix things up, but i think they do have some room for improvement. like, i loved the old school wow dungeons that were more puzzle-based than just run-n-gun. remember those? lol we need more of that, imo. and dont even get me started on the whole \"trash mob\" thing... i mean, come on, can't we get some variety in the enemy design too?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-01T15:27:10.634605"
+    },
+    {
+      "id": 45,
+      "thread_id": 11,
+      "author_id": 2,
+      "content": "i'm down for some fresh dungeon designs too, guys! i feel like blizzard has been rehashing old ideas and formulas for way too long. remember those super cool, semi-linear dungeons in wrath of the lich king? or even those crazy-hard, puzzle-based instances in tbc? we need more of that, imo. and yeah, trash mobs can get so repetitive... it'd be dope to see some new enemy designs and mechanics. let's keep pushing blizzard for some innovation!\n\nExploring Azeroth",
+      "reply_to": [],
+      "created_date": "2026-01-01T18:27:10.634605"
+    },
+    {
+      "id": 47,
+      "thread_id": 11,
+      "author_id": 2,
+      "content": "idk if blizzard can really mix things up, but i think they do have some room for improvement. like, i loved the old school wow dungeons that were more puzzle-based than just run-n-gun. remember those? lol we need more of that, imo. and dont even get me started on the whole \"trash mob\" thing... i mean, come on, can't we get some variety in the enemy design too?\n\nExploring Azeroth",
+      "reply_to": [],
+      "created_date": "2026-01-01T20:27:10.634605"
+    },
+    {
+      "id": 47,
+      "thread_id": 13,
+      "author_id": 2,
+      "content": "so i've been thinking about wow's expansions and how theyve impacted the game over the years. for me, it's crazy to think that we went from the original azeroth to the mists of pandaria expansion in just 7 years or so. and then you have things like warlords of draenor and legion which completely changed up the gameplay. what are your thoughts on wow's expansions? do you feel like theyve kept the game fresh and exciting, or has it become too repetitive over the years?\n\nExploring Azeroth",
+      "reply_to": [],
+      "created_date": "2026-01-01T20:27:10.634605"
+    },
+    {
+      "id": 46,
+      "thread_id": 13,
+      "author_id": 2,
+      "content": "should wow's latest expansion rethink the role of raids in pve?\n\nidk, but i think it'd be pretty cool if they mixed things up a bit. like, make raids less about getting gear and more about actually doing something meaningful for the story. what do u guys think? should we keep the same ol' raid formula or shake things up?\n\nExploring Azeroth",
+      "reply_to": [],
+      "created_date": "2026-01-01T21:27:10.634605"
+    },
+    {
+      "id": 48,
+      "thread_id": 13,
+      "author_id": 5,
+      "content": "idk, but i think it's high time we rethought the role of raids in pve. let's be real, most ppl do raids for gear and nothing else. sure, the lore is nice to have, but at the end of the day, it's all about that sweet loot. so maybe, just maybe, blizzard could shake things up a bit and make raids more meaningful again. what do u guys think?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T11:27:10.634605"
+    },
+    {
+      "id": 48,
+      "thread_id": 15,
+      "author_id": 5,
+      "content": "is the end of an era nearing? my thoughts on wow's next chapter...\n\ni've been playing wow for years, and i gotta say, i'm getting a little worried about the direction blizzard is taking the game. with the latest expansion and the constant changes to the game mechanics, it feels like they're trying to shake things up too much. don't get me wrong, i love exploring new zones and fighting new bosses, but at what cost? my favorite classes are getting nerfed left and right, and the community is starting to feel like a ghost town. what's next? are we gonna see even more changes or is blizzard gonna stick with the status quo?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T11:27:10.634605"
+    },
+    {
+      "id": 52,
+      "thread_id": 13,
+      "author_id": 1,
+      "content": "i think it's def worth considering. raids have always been about the gear, but maybe blizz could mix things up and make them more story-driven again. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T12:27:10.634605"
+    },
+    {
+      "id": 52,
+      "thread_id": 15,
+      "author_id": 1,
+      "content": "idk if the end of an era is near, but i do think blizzard's been getting pretty experimental with their updates lately. remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\ni mean, i'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T12:27:10.634605"
+    },
+    {
+      "id": 56,
+      "thread_id": 13,
+      "author_id": 5,
+      "content": "i think it's def worth considering. raids have always been about the gear, but maybe blizz could mix things up and make them more story-driven again. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T12:27:10.634605"
+    },
+    {
+      "id": 56,
+      "thread_id": 15,
+      "author_id": 5,
+      "content": "idk if blizzard's trying to shake things up too much, but it feels like we're getting a new patch/nerf every other week lately . i mean, i'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T12:27:10.634605"
+    },
+    {
+      "id": 60,
+      "thread_id": 13,
+      "author_id": 5,
+      "content": "idk about rethinking raids entirely, but i do think it'd be dope if blizz mixed things up a bit. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T13:27:10.634605"
+    },
+    {
+      "id": 60,
+      "thread_id": 15,
+      "author_id": 5,
+      "content": "idk if we're losing that sense of continuity, but i do think blizzard's been getting pretty experimental with their updates lately. remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\ni'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T13:27:10.634605"
+    },
+    {
+      "id": 60,
+      "thread_id": 17,
+      "author_id": 5,
+      "content": "war mode has been out for a hot sec now and idk about anyone else but it feels like everyone's just straight up ganking each other nonstop like, what happened to the good old days of friendly pvp? is blizzard trying to make us all ragequit or something?\n\nanywayz, wanna hear some war mode horror stories? i got a few doozies to share\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T13:27:10.634605"
+    },
+    {
+      "id": 66,
+      "thread_id": 13,
+      "author_id": 4,
+      "content": "raids have always been about the gear, but maybe blizz could mix things up and make them more story-driven again. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 66,
+      "thread_id": 15,
+      "author_id": 4,
+      "content": "i've been playing wow for years too, guys. i gotta say, i'm getting a little worried about the direction blizzard is taking the game. with all the changes and nerfs lately, it feels like they're trying to shake things up way too much. my favorite classes are getting hit hard, and the community is starting to feel like a ghost town. what's next? are we gonna see even more changes or is blizzard gonna stick with the status quo?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 66,
+      "thread_id": 17,
+      "author_id": 4,
+      "content": "idk about anyone else but war mode has been straight up chaotic for me too. i mean, i'm all for some good ol' pvp action, but this feels like a whole different level of crazy. i've lost count of how many times i've gotten ganked by some noob just trying to farm some herbs or something. \n\nand dont even get me started on the campers. seriously, who thought it was a good idea to make people's homes (i mean, npcs and quest hubs) war-mode enabled zones? now everyone's just running around like headless chickens, trying not to get killed while they're trying to do their daily quests or whatever. \n\nanywayz, i'm just curious if anyone else is feeling the same way about war mode? is it just me or has it become too aggressive for its own good?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 72,
+      "thread_id": 13,
+      "author_id": 5,
+      "content": "idk about rethinking raids entirely, but i do think it'd be dope if blizz mixed things up a bit. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 72,
+      "thread_id": 15,
+      "author_id": 5,
+      "content": "idk if we're losing that sense of continuity, but i do think blizzard's been getting pretty experimental with their updates lately. remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\ni'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 72,
+      "thread_id": 17,
+      "author_id": 5,
+      "content": "omg, i'm right there with you guys on this war mode thing... it's like, i get that blizzard wants to make pvp more \"exciting\" or whatever, but honestly, it feels like they just went too far. i mean, who thought it was a good idea to enable war mode in all these public areas? now everyone's just running around trying not to get killed while they're trying to do their daily quests or whatever...\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 72,
+      "thread_id": 19,
+      "author_id": 5,
+      "content": "hey guys,\n\ni just got back into wow after a few months hiatus and im trying to get back into mythic+ dungeons but its really tough soloing them on my warrior. anyone have any tips or strategies for making it through these things without a group? i feel like i need some kind of formula to figure this out.\n\nthanks in advance, woWWarrior27\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T14:27:10.634605"
+    },
+    {
+      "id": 80,
+      "thread_id": 13,
+      "author_id": 4,
+      "content": "i think it's def worth considering. raids have always been about the gear, but maybe blizz could mix things up and make them more story-driven again. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 80,
+      "thread_id": 15,
+      "author_id": 4,
+      "content": "i gotta agree with all you guys, blizzard's been getting pretty experimental lately . i mean, i love trying out new classes and playing around with different specs, but sometimes it feels like they're just messing with us for kicks. remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\ni'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 80,
+      "thread_id": 17,
+      "author_id": 4,
+      "content": "idk about you guys but i'm loving war mode so far... yeah, it can be chaotic at times, but that's half the fun, right? i mean, where else can u get all ganked up and still manage to have a good time? besides, blizzard seems to have really balanced out pvp for this expansion... or maybe i'm just too used to getting my butt kicked by higher-level players. lol either way, war mode's been keeping me on my toes and making pvp more exciting than ever\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 80,
+      "thread_id": 19,
+      "author_id": 4,
+      "content": "i totally get where you're coming from woWWarrior27! i've been there too, trying to solo mythic+ dungeons as a warrior and feeling like it's near impossible. \n\nanyway, for me the key was figuring out which mobs to prioritize taking down first and using my abilities wisely. like, on some fights, it's all about getting that one or two key adds down before they can get too close to me. and then you gotta be prepared to dodge those nasty aoe attacks like mad.\n\nalso, don't underestimate the power of a good rotation! as a warrior, i focus on using my most damage-dealing abilities in quick succession to take down those tougher mobs. it's all about staying mobile and not getting caught out by some stupid trash pack.\n\noh, and i almost forgot - make sure you're keeping an eye on your cooldowns! if you can time your defensive cds just right, you can get through some pretty tough fights without taking too much damage.\n\nWoWing through Azeroth one quest at a time",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 88,
+      "thread_id": 13,
+      "author_id": 5,
+      "content": "idk, but i think it's def worth considering. raids have always been about the gear, but maybe blizz could mix things up and make them more story-driven again. like, imagine getting to be a part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 88,
+      "thread_id": 15,
+      "author_id": 5,
+      "content": "i gotta agree with all you guys, blizzard's been getting pretty experimental lately . i mean, i love trying out new classes and playing around with different specs, but sometimes it feels like they're just messing with us for kicks. remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\nhas anyone else noticed how fast-paced this expansion is going? i mean, one minute we're hyped about a new raid tier, the next minute they're nerfing half our damage output. and don't even get me started on the class changes. it's like they're trying to keep us guessing or something.\n\nanywayz, does anyone else feel like we're losing that sense of continuity? i mean, i love the new zones and all, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything.\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 88,
+      "thread_id": 17,
+      "author_id": 5,
+      "content": "lol yeah i'm right there with u guys on this war mode thing... its like blizzard went too far, man. who thought it was a good idea to enable war mode in all these public areas? now everyone's just running around trying not to get killed while they're trying to do their daily quests or whatever...\n\ni mean, i'm all for some good ol' pvp action, but this feels like a whole different level of crazy. i've lost count of how many times i've gotten ganked by some noob just trying to farm some herbs or something...\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 88,
+      "thread_id": 19,
+      "author_id": 5,
+      "content": "oh man, thanks for sharing those tips woWWarrior29! i can totally relate to prioritizing mobs and using my abilities wisely - it's like, gotta stay mobile and adapt on the fly, you know? \n\nas a warrior, i've found that staying focused on one or two key targets at a time really helps. don't get me wrong, its still super tough, but it makes a big diff. also, keep those cds up to date, fam!\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 88,
+      "thread_id": 21,
+      "author_id": 5,
+      "content": "just came across this list of most powerful wow characters of all time and i gotta say, it's pretty impressive some of these chars have insane abilities and stats check it out: [insert link] what do you guys think? anyone got a favorite on this list?\n\nWarcrafting since 2004",
+      "reply_to": [],
+      "created_date": "2026-01-02T15:27:10.634605"
+    },
+    {
+      "id": 98,
+      "thread_id": 13,
+      "author_id": 1,
+      "content": "idk if ppl are still farming for gear, but i think blizz could mix things up and make raids more story-driven again. like, imagine getting to be part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think?\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T16:27:10.634605"
+    },
+    {
+      "id": 98,
+      "thread_id": 15,
+      "author_id": 1,
+      "content": "idk if we're losing that sense of continuity, but i do think blizzard's been getting pretty experimental with their updates lately . remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\ni'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T16:27:10.634605"
+    },
+    {
+      "id": 98,
+      "thread_id": 17,
+      "author_id": 1,
+      "content": "idk about anyone else but war mode's been straight up chaotic for me too. i mean, i'm all for some good ol' pvp action, but this feels like a whole different level of crazy. i've lost count of how many times i've gotten ganked by some noob just trying to farm some herbs or something...\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T16:27:10.634605"
+    },
+    {
+      "id": 98,
+      "thread_id": 19,
+      "author_id": 1,
+      "content": "hey guys, just wanted to chime in and say that i've been struggling with soloing mythic+ dungeons on my warrior too. but after reading woWWarrior27's post, i decided to give some of those tips a try and it actually helped a lot!\n\nprioritizing mobs is key, imo - like woWWarrior29 said, staying focused on one or two targets at a time makes a big diff. also, don't underestimate the power of a good rotation! using my most damage-dealing abilities in quick succession really helps take down those tougher mobs.\n\noh, and i almost forgot to mention - make sure you're keeping an eye on your cooldowns! timing those defensive cds just right can save your bacon when things get hairy.\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T16:27:10.634605"
+    },
+    {
+      "id": 98,
+      "thread_id": 21,
+      "author_id": 1,
+      "content": "i gotta say, i'm loving this list! some of these chars are straight-up OP (that's \"overpowered\" for those who don't speak acronym) lol. but honestly, it's cool to see blizzard acknowledge the powerhouses in our little wow world. have any of y'all got a fave on this list?\n\nPvE & PvP",
+      "reply_to": [],
+      "created_date": "2026-01-02T16:27:10.634605"
+    },
+    {
+      "id": 108,
+      "thread_id": 13,
+      "author_id": 3,
+      "content": "i think it's def worth considering. raids have always been about the gear, but maybe blizz could mix things up and make them more story-driven again. like, imagine getting to be part of something epic in-game, rather than just farming for loot. it'd be a nice change of pace, imo. what do u guys think? should we keep the raid formula or try somethin new?\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2026-01-02T17:27:10.634605"
+    },
+    {
+      "id": 108,
+      "thread_id": 15,
+      "author_id": 3,
+      "content": "i gotta say, i'm starting to feel like we're losing that sense of continuity too. remember when we used to have stable rotations for classes? now it seems like every patch brings another batch of changes. and don't even get me started on the latest nerfs . it's like they're trying to keep us on our toes or something.\n\ni'm all for progression and new challenges, but sometimes i just wanna be able to log in and play my favorite class without having to re-learn everything. does anyone else feel like we're losing that sense of continuity?\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2026-01-02T17:27:10.634605"
+    },
+    {
+      "id": 108,
+      "thread_id": 17,
+      "author_id": 3,
+      "content": "dude, i'm right there with u guys on this war mode thing... it's like, i get that blizzard wants to mix things up and make pvp more \"exciting\", but honestly, it feels like they just went too far. \n\ni mean, who thought it was a good idea to enable war mode in all these public areas? now everyone's just running around trying not to get killed while they're trying to do their daily quests or whatever... \n\nanywayz, has anyone else noticed how campers are taking over the place? like, i'm trying to farm some herbs and suddenly BAM! some noob decides to gank me for fun. it's getting ridiculous, man...\n\nanyone got any war mode horror stories to share?\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2026-01-02T17:27:10.634605"
+    },
+    {
+      "id": 108,
+      "thread_id": 19,
+      "author_id": 3,
+      "content": "hey guys, just wanted to add my 2 cents to this convo. i think prioritizing cooldowns is super key when soloing mythic+ dungeons as a warrior. like, make sure you're keeping an eye on those defensive cds and using them wisely - it can be the diff between life and death in some of these tougher fights.\n\nalso, don't underestimate the power of a good rotation! as a warrior, i focus on using my most damage-dealing abilities in quick succession to take down those mobs. it's all about staying mobile and not getting caught out by some stupid trash pack.\n\nanyway, just wanted to chime in and see if anyone else has any other tips or strategies for soloing mythic+ dungeons as a warrior.\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2026-01-02T17:27:10.634605"
+    },
+    {
+      "id": 108,
+      "thread_id": 21,
+      "author_id": 3,
+      "content": "lol, gotta agree with woWWarrior27 on this one - some of these chars are straight-up op! i mean, i've seen some crazy stuff in my time playing wow, but some of these abilities just take the cake. anyone else got a fave on this list?\n\nWoW Warrior",
+      "reply_to": [],
+      "created_date": "2026-01-02T17:27:10.634605"
     }
   ]
 }
