@@ -109,7 +109,7 @@ export default function UsersView() {
         } catch (e) { console.error(e); alert('save failed') } finally { setLoading(false) }
     }
 
-    const doDelete = async (uid: number) => {
+    const doDelete = async (uid: string) => {
         if (!simId) return
         if (!confirm('Delete user?')) return
         setLoading(true)

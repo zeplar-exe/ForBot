@@ -9,8 +9,10 @@ from dataclasses import asdict
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
+import dspy
 from pathlib import Path
-
+import mlflow
+ 
 # Directory to persist simulation state
 STORAGE_DIR = Path(__file__).parent / "simulations"
 STORAGE_DIR.mkdir(exist_ok=True)
@@ -18,6 +20,14 @@ STORAGE_DIR.mkdir(exist_ok=True)
 LOG_FILE = "forbot.log"
 
 app = FastAPI(title="ForBot Simulation Server")
+
+lm = dspy.LM("ollama_chat/llama3", api_base="http://localhost:11434", api_key="")
+dspy.configure(lm=lm)
+dspy.enable_logging()
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.autolog()
+mlflow.set_experiment("ForBot")
 
 os.environ["OLLAMA_NUM_PARALLEL"] = "4"
 
@@ -202,7 +212,7 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
         sim._time = 0
 
     # users
-    users_by_id: Dict[int, User] = {}
+    users_by_id: Dict[str, User] = {}
     for u in data.get("users", []):
         ah = u.get("active_hours")
         if isinstance(ah, list) and len(ah) >= 2:
@@ -212,51 +222,51 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
                 active_hours = range(0, 24)
         else:
             active_hours = range(0, 24)
-        user = User(id=int(u.get("id")), username=u.get("username", ""), signature=u.get("signature", ""), personality=u.get("personality", ""), forum_dedication=float(u.get("forum_dedication", 0.5)), active_hours=active_hours)
+        user = User(username=u.get("username", ""), signature=u.get("signature", ""), personality=u.get("personality", ""), forum_dedication=float(u.get("forum_dedication", 0.5)), active_hours=active_hours, id=str(u.get("id")))
         sim.users.append(user)
         users_by_id[user.id] = user
 
     # threads
-    threads_by_id: Dict[int, Thread] = {}
+    threads_by_id: Dict[str, Thread] = {}
     for t in data.get("threads", []):
         auth_id = t.get("author_id")
-        if auth_id is None or int(auth_id) not in users_by_id:
+        if auth_id is None or str(auth_id) not in users_by_id:
             # skip threads whose author is missing
             continue
-        author = users_by_id[int(auth_id)]
+        author = users_by_id[str(auth_id)]
         # parse created_date for thread if present
         thread_created = parse_date(t.get("created_date"))
         if thread_created is not None:
-            thread = Thread(id=int(t.get("id")), title=t.get("title", ""), author=author, category=cast(ThreadCategory, None), created_date=thread_created)
+            thread = Thread(title=t.get("title", ""), author=author, category=cast(ThreadCategory, None), created_date=thread_created, id=str(t.get("id")))
         else:
-            thread = Thread(id=int(t.get("id")), title=t.get("title", ""), author=author, category=cast(ThreadCategory, None))
+            thread = Thread(title=t.get("title", ""), author=author, category=cast(ThreadCategory, None), id=str(t.get("id")))
         sim.threads.append(thread)
         threads_by_id[thread.id] = thread
 
     # posts (first pass)
-    posts_by_id: Dict[int, Post] = {}
+    posts_by_id: Dict[str, Post] = {}
     for p in data.get("posts", []):
         tid = p.get("thread_id")
         aid = p.get("author_id")
         if tid is None or aid is None:
             continue
-        if int(tid) not in threads_by_id or int(aid) not in users_by_id:
+        if str(tid) not in threads_by_id or str(aid) not in users_by_id:
             # skip posts with missing thread or author
             continue
-        thread = threads_by_id[int(tid)]
-        author = users_by_id[int(aid)]
+        thread = threads_by_id[str(tid)]
+        author = users_by_id[str(aid)]
         # parse created_date for post if present
         post_created = parse_date(p.get("created_date"))
         if post_created is not None:
-            post = Post(id=int(p.get("id")), thread=thread, author=author, content=p.get("content", ""), reply_to=[], created_date=post_created)
+            post = Post(thread=thread, author=author, content=p.get("content", ""), reply_to=[], created_date=post_created, id=str(p.get("id")))
         else:
-            post = Post(id=int(p.get("id")), thread=thread, author=author, content=p.get("content", ""), reply_to=[])
+            post = Post(thread=thread, author=author, content=p.get("content", ""), reply_to=[], id=str(p.get("id")))
         sim.posts.append(post)
         posts_by_id[post.id] = post
 
     # resolve reply_to
     for p in data.get("posts", []):
-        pid = int(p.get("id"))
+        pid = str(p.get("id"))
         post = posts_by_id.get(pid)
         if post is None:
             continue
@@ -264,11 +274,11 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
         resolved: List[Post] = []
         for rid in reply_ids:
             try:
-                rid_int = int(rid)
+                rid_str = str(rid)
             except Exception:
                 continue
-            if rid_int in posts_by_id:
-                resolved.append(posts_by_id[rid_int])
+            if rid_str in posts_by_id:
+                resolved.append(posts_by_id[rid_str])
         post.reply_to = resolved
 
     return sim
@@ -484,8 +494,7 @@ def create_user_manual(sim_id: int, body: Dict[str, Any]):
     Expected fields: username, signature, personality, forum_dedication (float), active_hours: [start, stop]
     """
     sim = get_sim_or_404(sim_id)
-    uid = (max([u.id for u in sim.users]) + 1) if sim.users else 1
-    username = body.get("username", f"user{uid}")
+    username = body.get("username", f"user{len(sim.users) + 1}")
     signature = body.get("signature", "")
     personality = body.get("personality", "")
     forum_dedication = float(body.get("forum_dedication", 0.5))
@@ -500,7 +509,8 @@ def create_user_manual(sim_id: int, body: Dict[str, Any]):
     else:
         active_hours = range(0, 24)
 
-    user = User(id=uid, username=username, signature=signature, personality=personality, forum_dedication=forum_dedication, active_hours=active_hours)
+    # let the User dataclass generate a GUID id by default
+    user = User(username=username, signature=signature, personality=personality, forum_dedication=forum_dedication, active_hours=active_hours)
     sim.users.append(user)
     logger.info(f"Manually created user {user.username} (id={user.id}) in sim {sim_id}")
     save_simulation(sim_id)
@@ -508,7 +518,7 @@ def create_user_manual(sim_id: int, body: Dict[str, Any]):
 
 
 @app.patch("/simulations/{sim_id}/users/{user_id}")
-def update_user_manual(sim_id: int, user_id: int, body: Dict[str, Any]):
+def update_user_manual(sim_id: int, user_id: str, body: Dict[str, Any]):
     sim = get_sim_or_404(sim_id)
     user = next((u for u in sim.users if u.id == user_id), None)
     if user is None:
@@ -537,7 +547,7 @@ def update_user_manual(sim_id: int, user_id: int, body: Dict[str, Any]):
 
 
 @app.delete("/simulations/{sim_id}/users/{user_id}")
-def delete_user(sim_id: int, user_id: int):
+def delete_user(sim_id: int, user_id: str):
     sim = get_sim_or_404(sim_id)
     user = next((u for u in sim.users if u.id == user_id), None)
     if user is None:
@@ -564,7 +574,7 @@ def get_sim_posts(sim_id: int):
 
 
 @app.get("/simulations/{sim_id}/posts/{post_id}")
-def get_sim_post(sim_id: int, post_id: int):
+def get_sim_post(sim_id: int, post_id: str):
     sim = get_sim_or_404(sim_id)
     for p in sim.posts:
         if p.id == post_id:

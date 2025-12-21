@@ -7,12 +7,12 @@ import { formatDisplayDate } from './date'
 export default function ThreadView(){
   const params = useParams()
   const simId = params.simId ? Number(params.simId) : null
-  const threadId = params.threadId ? Number(params.threadId) : null
+  const threadId = params.threadId ?? null
 
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [forum, setForum] = useState<{name:string}|null>(null)
-  const [userMap, setUserMap] = useState<Record<number,string>>({})
+  const [userMap, setUserMap] = useState<Record<string,string>>({})
   const [threadTitle, setThreadTitle] = useState<string | null>(null)
 
   // escape HTML and convert newlines to <br/> to preserve line breaks safely
@@ -26,20 +26,20 @@ export default function ThreadView(){
   }
 
   useEffect(()=>{
-    if(!simId || !threadId) return
+  if(!simId || !threadId) return
     let mounted = true
     const load = async ()=>{
       setLoading(true)
       try{
         const [all, users, threads] = await Promise.all([fetchPosts(simId), fetchUsers(simId), fetchThreads(simId)])
-        const filtered = (all || []).filter((p:any) => p.thread_id === threadId)
-        const usersList = users || []
-        const map: Record<number,string> = {}
-        usersList.forEach((u:any)=>{ map[u.id] = u.username })
+  const filtered = (all || []).filter((p:any) => String(p.thread_id) === String(threadId))
+  const usersList = users || []
+  const map: Record<string,string> = {}
+  usersList.forEach((u:any)=>{ map[String(u.id)] = u.username })
         if(!mounted) return
         setPosts(filtered)
         setUserMap(map)
-        const found = (threads || []).find((t:any)=> t.id === threadId)
+  const found = (threads || []).find((t:any)=> String(t.id) === String(threadId))
         setThreadTitle(found ? found.title : null)
       }catch(err){
         console.error('failed to load posts', err)

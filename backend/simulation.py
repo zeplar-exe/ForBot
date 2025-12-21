@@ -1,14 +1,66 @@
 from data import *
-from llm_wrapper import chat
 import logging
 import random
 from typing import List
+import dspy
+import random
+
+BASE_TEXT_STYLE = "Use forum-like language and tone, such as lack of capitalization, grammar, and punctuation, as well as general internet acronyms and references, so long as they fit your stated personality. Make sure to direct your message towards other users in the thread. Avoid generating a long message. Be concise and to the point."
 
 with open("personality-adjectives.txt", "r") as f:
     ADJECTIVES = [line.strip() for line in f.readlines() if line.strip()]
 
 def generate_personality() -> str:
     return f"You are best described by and generally show the following personality traits in your threads and posts: {', '.join(random.choices(ADJECTIVES, k=15))}."
+
+@dataclass
+class UserPromptData:
+    username: str
+    personality: str
+
+@dataclass
+class PostPromptData:
+    author: str
+    thread_title: str
+
+class SummarizeForumPrompt(dspy.Signature):
+    forum_topic: str = dspy.InputField()
+    forum_purpose: str = dspy.InputField()
+    short_summary: str = dspy.OutputField()
+
+class GenerateUsernamePrompt(dspy.Signature):
+    topic: str = dspy.InputField()
+    seed: int = dspy.InputField()
+    username: str = dspy.OutputField()
+
+class GenerateSignaturePrompt(dspy.Signature):
+    topic: str = dspy.InputField()
+    seed: int = dspy.InputField()
+    user_signature: str = dspy.OutputField()
+
+class ThreadEngagementPrompt(dspy.Signature):
+    user: UserPromptData = dspy.InputField()
+    forum_summary: str = dspy.InputField()
+    thread_title: str = dspy.InputField()
+    own_posts_count: int = dspy.InputField()
+    total_posts_count: int = dspy.InputField()
+    engage: bool = dspy.OutputField()
+
+class CreateThreadPrompt(dspy.Signature):
+    user: UserPromptData = dspy.InputField()
+    forum_summary: str = dspy.InputField()
+    style_instructions: str = dspy.InputField()
+    thread_focus: str = dspy.InputField()
+    thread_title: str = dspy.OutputField()
+    thread_body: str = dspy.OutputField()
+
+class CreatePostPrompt(dspy.Signature):
+    user: UserPromptData = dspy.InputField()
+    forum_summary: str = dspy.InputField()
+    style_instructions: str = dspy.InputField()
+    thread_title: str = dspy.InputField()
+    previous_posts: list[PostPromptData] = dspy.InputField()
+    post_content: str = dspy.OutputField()
 
 class Simulation:
     def __init__(self, forum: Forum):
@@ -19,33 +71,41 @@ class Simulation:
         self.users: List[User] = []
         self.threads: List[Thread] = []
         self.posts: List[Post] = []
+
+        self.generate_summaries()
+
+    def generate_summaries(self):
+        summarize_forum = dspy.Predict(SummarizeForumPrompt)
+        summary = summarize_forum(
+            instructions="Generate a short summary of the forum topic and purpose to be used in generating user personalities, threads, and posts. Aim for about 8-12 sentences of content while being concise and including information relevant to user discussion.",
+            forum_topic=self.forum.topic,
+            forum_purpose=self.forum.purpose
+        ).short_summary
+        self.forum_summary = summary
+        self._logger.info(f"Generated forum summary: {summary}")
     
     def generate_users(self, num_users: int):
-        usernames = chat(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a creative AI that generates unique and interesting online usernames for forum users."},
-                {"role": "user", "content": f"Generate {num_users + 5} unique and interesting online usernames for forum users interested in a forum with the name '{self.forum.name}', the purpose of '{self.forum.purpose}', and purported topic of '{self.forum.topic}'. Return the usernames as a comma-separated list. DO NOT INCLUDE ANYTHING ELSE IN YOUR RESPONSE. DO NOT USE AN INTRODUCTORY SENTENCE."}
-            ]).message.content.strip().split(",")
-
-        signatures = chat(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a creative AI that generates unique and interesting online signatures for forum users."},
-                {"role": "user", "content": f"Generate {num_users + 5} unique and interesting online signatures for forum users interested in a forum with the name '{self.forum.name}', the purpose of '{self.forum.purpose}', and purported topic of '{self.forum.topic}'. Return the signatures as a comma-separated list. DO NOT INCLUDE ANYTHING ELSE IN YOUR RESPONSE. DO NOT USE AN INTRODUCTORY SENTENCE."}
-            ]).message.content.strip().split(",")
+        generate_username = dspy.Predict(GenerateUsernamePrompt)
+        generate_signature = dspy.Predict(GenerateSignaturePrompt)
 
         for i in range(num_users):
-            username = usernames[i].strip()
+            username = generate_username(
+                instructions="Generate a unique and interesting online username for a forum user given a topic for the forum. The seed influences stylistic variation only. Do not mention or encode it directly.",
+                seed=random.randint(0, int(1e6)),
+                topic=self.forum_summary,
+            ).username.strip()
             personality = generate_personality()
-            signature = signatures[i].strip()
+            signature = generate_signature(
+                instructions="Generate a unique and interesting online signature for a forum user given a topic for the forum. The seed influences stylistic variation only. Do not mention or encode it directly.",
+                seed=random.randint(0, int(1e6)),
+                topic=self.forum_summary,
+            ).user_signature.strip()
             forum_dedication = random.uniform(0.1, 1.0)
             active_start = random.randint(0, 20)
             active_end = active_start + random.randint(4, 8)
             active_hours = range(active_start, active_end % 24)
 
             user = User(
-                id=len(self.users) + 1,
                 username=username,
                 signature=signature,
                 personality=personality,
@@ -83,13 +143,11 @@ class Simulation:
 
                     new_posts.extend(added_posts)
                     self.posts.extend(added_posts)
-            self._logger.info(f"Simulated hour: {self._time % 24} (total time: {self._time} hours) - New threads: {len(new_threads)}, New posts: {len(new_posts)}")
+            self._logger.info(f"Simulated hour: {self._time % 24} (total time: {self._time} hours) - New threads: {len(new_threads)}, New posts: {len(new_threads)}")
     
     def simulate_user_activity(self, user: User, new_threads: List[Thread], new_posts: List[Post]) -> tuple[List[Thread], List[Post]]:
         if random.random() > user.forum_dedication:
             return [], []
-        
-        base_prompt = user.get_prompt(self.forum)
 
         added_threads = []
         added_posts = []
@@ -98,29 +156,32 @@ class Simulation:
             thread_posts = self.get_posts_in_thread(thread)
             own_posts = self.get_user_posts_in_thread(user, thread)
 
-            engage = chat(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": base_prompt},
-                    {"role": "user", "content": f"You have previously made {len(own_posts)} posts in the thread titled '{thread.title}'. There are currently {len(thread_posts)} posts in this thread. Decide whether you want to make another post in this thread based on your personality and forum dedication. Respond with 'YES' if you want to make a post, or 'NO' if you do not. DO NOT INCLUDE ANYTHING ELSE IN YOUR RESPONSE. DO NOT USE AN INTRODUCTORY SENTENCE."}
-                ]).message.content.strip().upper()
-            
-            if "YES" not in engage:
+            engage = dspy.Predict(ThreadEngagementPrompt)
+
+            if not engage(
+                instructions="Decide whether the user would like to engage in the given thread based on their personality and previous participation.",
+                user=UserPromptData(username=user.username, personality=user.personality),
+                forum_summary=self.forum_summary,
+                thread_title=thread.title,
+                own_posts_count=len(own_posts),
+                total_posts_count=len(thread_posts)
+            ).engage:
                 continue
                 
+            create_post = dspy.Predict(CreatePostPrompt)
+
             previous_posts = thread_posts[-30:] if len(thread_posts) >= 30 else thread_posts
-            
-            post_content = chat(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": base_prompt},
-                    {"role": "system", "content": f"You are replying in the thread titled '{thread.title}'."},
-                    {"role": "system", "content": f"Here are the previous posts in the thread in order from oldest to newest: {'\n'.join([f"{post.content}; written by {post.author.username}" for post in previous_posts])}"},
-                    {"role": "user", "content": f"Generate the content to a post replying in the thread titled '{thread.title}'. Do not use the title as the first line of your post content. Make sure your post content is engaging and relevant to the forum topic. Use forum-like language and tone, such as lack of capitalization, grammar, and punctuation, as well as general internet acronyms and references, so long as they fit your stated personality. Make sure to direct your message towards other users in the thread. Avoid generating a long message. Be concise and to the point. DO NOT INCLUDE AN IRRELEVANT INTRODUCTORY SENTENCE."}
-                ]).message.content.strip()
-            
+
+            post_content = create_post(
+                instructions="Create a concise and relevant forum post in response to the given thread title and previous posts, reflecting the user's personality and adhering to the specified style instructions.",
+                user=UserPromptData(username=user.username, personality=user.personality),
+                forum_summary=self.forum_summary,
+                style_instructions=BASE_TEXT_STYLE,
+                thread_title=thread.title,
+                previous_posts=[PostPromptData(author=post.author.username, thread_title=post.thread.title) for post in previous_posts]
+            ).post_content.strip()
+
             post = Post(
-                id=len(self.posts) + len(new_posts) + 1,
                 thread=thread,
                 author=user,
                 content=post_content + "\n\n" + user.signature,
@@ -139,34 +200,27 @@ class Simulation:
                     "You make a thread to share something interesting you found related to the forum topic."]
             thread_focus = random.choice(foci)
 
-            title = chat(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": base_prompt},
-                    {"role": "user", "content": f"{thread_focus} Generate a concise and catchy thread title for this new thread. DO NOT INCLUDE ANYTHING ELSE IN YOUR RESPONSE. DO NOT USE AN INTRODUCTORY SENTENCE."}
-                ]).message.content.strip()
-
-            post_content = chat(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": base_prompt},
-                    {"role": "system", "content": f"You are creating a new thread titled '{title}'."},
-                    {"role": "user", "content": f"{thread_focus} Generate the content to a post inside your new thread titled '{title}'. Keep in mind that you are making this thread and post for the following reason: {thread_focus} Make sure your post content is engaging and relevant to the forum topic. Use forum-like language and tone, such as lack of capitalization, grammar, and punctuation, as well as general internet acronyms and references, so long as they fit your stated personality. Avoid generating a long message. Be concise and to the point. DO NOT INCLUDE ANYTHING ELSE IN YOUR RESPONSE. DO NOT INCLUDE AN IRRELEVANT INTRODUCTORY SENTENCE."}
-                ]).message.content.strip()
+            create_thread = dspy.Predict(CreateThreadPrompt)
+            
+            thread_info = create_thread(
+                instructions="Create a concise and catchy thread title and body for a new forum thread based on the user's personality and the specified focus for the thread.",
+                user=UserPromptData(username=user.username, personality=user.personality),
+                forum_summary=self.forum_summary,
+                style_instructions=BASE_TEXT_STYLE,
+                thread_focus=thread_focus
+            )
 
             thread = Thread(
-                id=len(self.threads) + len(new_threads) + 1,
-                title=title,
+                title=thread_info.thread_title,
                 author=user,
                 category=None,
                 created_date=self.forum.created_date.add_hours(self._time)
             )
 
             post = Post(
-                id=len(self.posts) + len(new_posts) + 1,
                 thread=thread,
                 author=user,
-                content=post_content + "\n\n" + user.signature,
+                content=thread_info.thread_body + "\n\n--------------------\n" + user.signature,
                 reply_to=[],
                 created_date=self.forum.created_date.add_hours(self._time)
             )

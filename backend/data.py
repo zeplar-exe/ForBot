@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
+import uuid
 
 
 @dataclass
@@ -23,22 +24,19 @@ class Forum:
 
 @dataclass
 class ThreadCategory:
-    id: int
     name: str
     description: str
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
 class User:
-    id: int
     username: str
     signature: str
     personality: str
     forum_dedication: float
     active_hours: range
-
-    def get_prompt(self, forum: Forum) -> str:
-        return f"Your online username is {self.username}. {self.personality}. You partcipate in the forum '{forum.name}', which is about {forum.topic}. This forum has a stated purpose: '{forum.purpose}'."
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
@@ -51,18 +49,18 @@ class UserRelationship:
 
 @dataclass
 class Thread:
-    id: int
     title: str
     author: User
-    category: ThreadCategory
+    category: Optional[ThreadCategory]
     created_date: Date = field(default_factory=lambda: Date(datetime.now(), 0))
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
 class Post:
-    id: int
     thread: Thread
     author: User
     content: str
     reply_to: List['Post']
     created_date: Date = field(default_factory=lambda: Date(datetime.now(), 0))
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))

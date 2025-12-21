@@ -11,7 +11,7 @@ export default function SimulationView(){
   const [forum, setForum] = useState<{name:string;purpose:string;topic:string}|null>(null)
   const [forumCreatedDate, setForumCreatedDate] = useState<string | undefined>(undefined)
   const [threads, setThreads] = useState<any[]>([])
-  const [userMap, setUserMap] = useState<Record<number,string>>({})
+  const [userMap, setUserMap] = useState<Record<string,string>>({})
   const [loading, setLoading] = useState(false)
   const [showEditTopic, setShowEditTopic] = useState(false)
   const [editTopic, setEditTopic] = useState('')
@@ -26,8 +26,8 @@ export default function SimulationView(){
         const t = await fetchThreads(simId)
   const users = await fetchUsers(simId)
   const usersList = users || []
-  const map: Record<number,string> = {}
-  usersList.forEach((u:any) => { map[u.id] = u.username })
+  const map: Record<string,string> = {}
+  usersList.forEach((u:any) => { map[String(u.id)] = u.username })
         if(!mounted) return
         setForum(f)
         // convert ISO to datetime-local value

@@ -74,7 +74,7 @@ export async function createUser(simId: number, payload: { username: string; sig
   return res.json()
 }
 
-export async function updateUser(simId: number, userId: number, payload: any){
+export async function updateUser(simId: number, userId: string, payload: any){
   const res = await fetch(`${BASE}/simulations/${simId}/users/${userId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -84,7 +84,7 @@ export async function updateUser(simId: number, userId: number, payload: any){
   return res.json()
 }
 
-export async function deleteUser(simId: number, userId: number){
+export async function deleteUser(simId: number, userId: string){
   const res = await fetch(`${BASE}/simulations/${simId}/users/${userId}`, { method: 'DELETE' })
   if(!res.ok) throw new Error('Failed to delete user')
   return res.json()
