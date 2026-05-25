@@ -2,6 +2,7 @@
 *.sqlite
 backend/simulations
 backend/res
+backend/mlruns
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
