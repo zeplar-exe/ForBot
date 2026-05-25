@@ -90,13 +90,37 @@ export async function runRAG(simId: number, payload: { query: string; source?: s
   return res.json()
 }
 
-export async function fetchAISettings(simId: number) {
+export type AISettings = {
+  model: string
+  temperature: number
+  top_p: number
+  top_k: number
+  frequency_penalty: number
+  presence_penalty: number
+  whitelist: string[]
+  thinking: string
+  thread_creation_chance: number
+}
+
+export async function fetchAISettings(simId: number): Promise<AISettings> {
   const res = await fetch(`${BASE}/simulations/${simId}/ai_settings`)
   if (!res.ok) throw new Error('Failed to fetch AI settings')
   return res.json()
 }
 
-export async function updateAISettings(simId: number, payload: { model?: string; temperature?: number; top_p?: number; top_k?: number; max_tokens?: number; whitelist?: string[]; thinking?: string }){
+export type AISettingsPayload = {
+  model?: string
+  temperature?: number
+  top_p?: number
+  top_k?: number
+  frequency_penalty?: number
+  presence_penalty?: number
+  whitelist?: string[]
+  thinking?: string
+  thread_creation_chance?: number
+}
+
+export async function updateAISettings(simId: number, payload: AISettingsPayload) {
   const res = await fetch(`${BASE}/simulations/${simId}/ai_settings`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

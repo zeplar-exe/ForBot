@@ -12,11 +12,12 @@ type PostId = str
 
 @dataclass
 class AIConfig:
-    model: str = "ollama_chat/llama3"
+    model: str = "openai/gpt-4o-mini"
     temperature: float = 0.7
     top_p: float = 0.9
     top_k: int = 40
-    max_tokens: int = 2500
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
     whitelist: List[str] = field(default_factory=list)
     thinking: str = "medium"  # one of: low, medium, high
 

@@ -52,6 +52,7 @@ def sim_to_dict(sim) -> Dict[str, Any]:
         "forum": dataclass_asdict(sim.forum),
         "model_config": None,
         "time": sim._time,
+        "thread_creation_chance": sim.thread_creation_chance,
         "users": [],
         "threads": [],
         "posts": [],

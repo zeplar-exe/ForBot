@@ -91,6 +91,7 @@ class Simulation:
         self._logger = logging.getLogger("forbot")
         self._time = 0
         self.model_config = AIConfig()
+        self.thread_creation_chance: float = 0.25
         self.forum: Forum = forum
         self.users: List[User] = []
         self.threads: List[Thread] = []
@@ -231,7 +232,7 @@ class Simulation:
         for post in new_posts:
             pass
 
-        if random.random() < 0.25:
+        if random.random() < self.thread_creation_chance:
             foci = [
                 "You decide to create a new thread to express your thoughts on a topic you care about.",
                 "You make a thread to share something interesting you found related to the forum topic.",

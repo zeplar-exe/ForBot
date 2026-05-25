@@ -32,8 +32,8 @@ OLLAMA_API_BASE = "http://localhost:11434"
 
 app = FastAPI(title="ForBot Simulation Server")
 
-lm = dspy.LM("openai/gpt-5.4-mini", api_key=os.getenv("OPENAI_API_KEY"))
-dspy.configure(lm=lm, temperature=0.7, top_p=0.9, top_k=40, max_tokens=2500)
+lm = dspy.LM("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.7, top_p=0.9)
+dspy.configure(lm=lm)
 dspy.enable_logging()
 
 
@@ -91,16 +91,45 @@ def sim_filepath(sim_id: int) -> Path:
 
 
 def get_installed_ollama_models() -> List[str]:
-    return [m.model for m in ollama.list()["models"]]
+    try:
+        return [m.model for m in ollama.list()["models"]]
+    except Exception:
+        return []
+
+
+CLOUD_MODELS = [
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "openai/o1",
+    "openai/o3-mini",
+    "anthropic/claude-opus-4-7",
+    "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-haiku-4-5",
+]
 
 
 def reconfigure_dspy_with_config(cfg: AIConfig):
     global lm
-    try:
-        lm = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="")
-        dspy.configure(lm=lm, temperature=cfg.temperature, top_p=cfg.top_p, top_k=cfg.top_k, max_tokens=cfg.max_tokens)
-    except Exception:
-        logger.exception("Failed to reconfigure dspy with new model config")
+    kwargs: dict = {
+        "temperature": cfg.temperature,
+        "top_p": cfg.top_p,
+    }
+    if cfg.top_k > 0:
+        kwargs["top_k"] = cfg.top_k
+    if cfg.frequency_penalty != 0.0:
+        kwargs["frequency_penalty"] = cfg.frequency_penalty
+    if cfg.presence_penalty != 0.0:
+        kwargs["presence_penalty"] = cfg.presence_penalty
+
+    if cfg.model.startswith("ollama"):
+        lm = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="", **kwargs)
+    elif cfg.model.startswith("anthropic/"):
+        lm = dspy.LM(cfg.model, api_key=os.getenv("ANTHROPIC_API_KEY", ""), **kwargs)
+    else:
+        lm = dspy.LM(cfg.model, **kwargs)
+
+    dspy.configure(lm=lm)
+    logger.info(f"Reconfigured dspy: {cfg.model}")
 
 
 class AISettingsRequest(BaseModel):
@@ -108,85 +137,58 @@ class AISettingsRequest(BaseModel):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     top_k: Optional[int] = None
-    max_tokens: Optional[int] = None
+    frequency_penalty: Optional[float] = None
+    presence_penalty: Optional[float] = None
     whitelist: Optional[List[str]] = None
     thinking: Optional[str] = None
+    thread_creation_chance: Optional[float] = None
 
 
 @app.get("/models")
 def api_list_models():
-    models = get_installed_ollama_models()
-    return {"models": models}
+    ollama_models = get_installed_ollama_models()
+    return {"models": CLOUD_MODELS + ollama_models}
 
 
 @app.get("/simulations/{sim_id}/ai_settings")
 def api_get_ai_settings(sim_id: int):
     sim = get_sim_or_404(sim_id)
-    
-    if sim.model_config is None:
-        sim.model_config = AIConfig()
-    return dataclass_asdict(sim.model_config)
+    cfg = dataclass_asdict(sim.model_config)
+    cfg["thread_creation_chance"] = sim.thread_creation_chance
+    return cfg
 
 
 @app.patch("/simulations/{sim_id}/ai_settings")
 def api_update_ai_settings(sim_id: int, body: AISettingsRequest):
     sim = get_sim_or_404(sim_id)
-    cfg = getattr(sim, "model_config", None)
-
-    if cfg is None:
-        cfg = AIConfig()
+    cfg = sim.model_config
 
     if body.model is not None:
-        models = get_installed_ollama_models()
-
-        if models and body.model not in models:
-            raise HTTPException(status_code=400, detail="Model not installed on server")
-        
         cfg.model = body.model
-
     if body.temperature is not None:
-        try:
-            cfg.temperature = float(body.temperature)
-        except Exception:
-            pass
+        cfg.temperature = body.temperature
     if body.top_p is not None:
-        try:
-            cfg.top_p = float(body.top_p)
-        except Exception:
-            pass
+        cfg.top_p = body.top_p
     if body.top_k is not None:
-        try:
-            cfg.top_k = int(body.top_k)
-        except Exception:
-            pass
-    if body.max_tokens is not None:
-        try:
-            cfg.max_tokens = int(body.max_tokens)
-        except Exception:
-            pass
+        cfg.top_k = body.top_k
+    if body.frequency_penalty is not None:
+        cfg.frequency_penalty = body.frequency_penalty
+    if body.presence_penalty is not None:
+        cfg.presence_penalty = body.presence_penalty
     if body.whitelist is not None:
-        try:
-            # normalize to list of strings
-            cfg.whitelist = [str(x).strip() for x in body.whitelist if str(x).strip()]
-        except Exception:
-            pass
+        cfg.whitelist = [x.strip() for x in body.whitelist if x.strip()]
     if body.thinking is not None:
-        try:
-            t = str(body.thinking).lower()
-            if t in ("low", "medium", "high"):
-                cfg.thinking = t
-        except Exception:
-            pass
+        if body.thinking in ("low", "medium", "high"):
+            cfg.thinking = body.thinking
+    if body.thread_creation_chance is not None:
+        sim.thread_creation_chance = body.thread_creation_chance
 
-    sim.model_config = cfg
-
-    try:
-        reconfigure_dspy_with_config(cfg)
-    except Exception:
-        pass
-
+    reconfigure_dspy_with_config(cfg)
     save_simulation(sim_id)
-    return dataclass_asdict(cfg)
+
+    result = dataclass_asdict(cfg)
+    result["thread_creation_chance"] = sim.thread_creation_chance
+    return result
 
 
 def save_simulation(sim_id: int):
@@ -225,14 +227,17 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
     mc = data.get("model_config")
     if isinstance(mc, dict):
         sim.model_config = AIConfig(
-            model=str(mc.get("model", "ollama_chat/llama3")),
+            model=str(mc.get("model", "openai/gpt-4o-mini")),
             temperature=float(mc.get("temperature", 0.7)),
             top_p=float(mc.get("top_p", 0.9)),
             top_k=int(mc.get("top_k", 40)),
-            max_tokens=int(mc.get("max_tokens", 2500)),
+            frequency_penalty=float(mc.get("frequency_penalty", 0.0)),
+            presence_penalty=float(mc.get("presence_penalty", 0.0)),
             whitelist=list(mc.get("whitelist", [])),
             thinking=str(mc.get("thinking", "medium")),
         )
+
+    sim.thread_creation_chance = float(data.get("thread_creation_chance", 0.25))
 
     users_by_id: Dict[str, User] = {}
 
@@ -420,12 +425,7 @@ def create_simulation(body: CreateSimulationRequest):
     next_sim_id += 1
 
     logger.info(f"Created simulation {sim_id} with forum: {sim.forum}")
-
-    try:
-        save_simulation(sim_id)
-    except Exception:
-        logger.exception(f"Failed to persist simulation {sim_id} after creation")
-
+    save_simulation(sim_id)
     return CreateSimulationResponse(id=sim_id)
 
 
