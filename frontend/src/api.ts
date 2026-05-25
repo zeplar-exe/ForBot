@@ -1,6 +1,6 @@
 const BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
 
-export type SimSummary = { id: number; name: string; users: number; threads: number; posts: number }
+export type SimSummary = { id: number; name?: string; users: number; threads: number; posts: number; running?: boolean }
 
 export async function fetchSimulations(): Promise<SimSummary[]> {
   const res = await fetch(`${BASE}/simulations`)
@@ -8,7 +8,7 @@ export async function fetchSimulations(): Promise<SimSummary[]> {
   return res.json()
 }
 
-export type CreateSimulationPayload = { name?: string; purpose?: string; topic?: string; created_date?: string }
+export type CreateSimulationPayload = { name?: string; topic?: string; created_date?: string }
 
 export async function createSimulation(payload?: CreateSimulationPayload): Promise<{ id: number }> {
   const res = await fetch(`${BASE}/simulations`, {
@@ -20,7 +20,7 @@ export async function createSimulation(payload?: CreateSimulationPayload): Promi
   return res.json()
 }
 
-export async function fetchForum(simId: number): Promise<{ name: string; purpose: string; topic: string; created_date?: string }> {
+export async function fetchForum(simId: number): Promise<{ name: string; topic: string; created_date?: string }> {
   const res = await fetch(`${BASE}/simulations/${simId}/forum`)
   if (!res.ok) throw new Error("Failed to fetch forum")
   return res.json()
@@ -48,7 +48,7 @@ export async function advanceSimulation(simId: number, hours: number) {
   return res.json()
 }
 
-export async function updateForum(simId: number, payload: { name?: string; purpose?: string; topic?: string; created_date?: string }){
+export async function updateForum(simId: number, payload: { name?: string; topic?: string; created_date?: string }){
   const res = await fetch(`${BASE}/simulations/${simId}/forum`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -61,6 +61,48 @@ export async function updateForum(simId: number, payload: { name?: string; purpo
 export async function fetchUsers(simId: number) {
   const res = await fetch(`${BASE}/simulations/${simId}/users`)
   if (!res.ok) throw new Error('Failed to fetch users')
+  return res.json()
+}
+
+export async function fetchModels() {
+  const res = await fetch(`${BASE}/models`)
+  if (!res.ok) throw new Error('Failed to fetch models')
+  return res.json()
+}
+
+export async function setSimulationState(simId: number, running: boolean) {
+  const res = await fetch(`${BASE}/simulations/${simId}/state`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ running }),
+  })
+  if(!res.ok) throw new Error('Failed to set simulation state')
+  return res.json()
+}
+
+export async function runRAG(simId: number, payload: { query: string; source?: string; top_k?: number }){
+  const res = await fetch(`${BASE}/simulations/${simId}/rag`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if(!res.ok) throw new Error('Failed to run RAG')
+  return res.json()
+}
+
+export async function fetchAISettings(simId: number) {
+  const res = await fetch(`${BASE}/simulations/${simId}/ai_settings`)
+  if (!res.ok) throw new Error('Failed to fetch AI settings')
+  return res.json()
+}
+
+export async function updateAISettings(simId: number, payload: { model?: string; temperature?: number; top_p?: number; top_k?: number; max_tokens?: number; whitelist?: string[]; thinking?: string }){
+  const res = await fetch(`${BASE}/simulations/${simId}/ai_settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if(!res.ok) throw new Error('Failed to update AI settings')
   return res.json()
 }
 
@@ -84,12 +126,6 @@ export async function updateUser(simId: number, userId: string, payload: any){
   return res.json()
 }
 
-export async function deleteUser(simId: number, userId: string){
-  const res = await fetch(`${BASE}/simulations/${simId}/users/${userId}`, { method: 'DELETE' })
-  if(!res.ok) throw new Error('Failed to delete user')
-  return res.json()
-}
-
 export async function generateSingleUser(simId: number){
   const res = await fetch(`${BASE}/simulations/${simId}/generate_users`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ num_users: 1 }) })
   if(!res.ok) throw new Error('Failed to generate user')
@@ -99,6 +135,6 @@ export async function generateSingleUser(simId: number){
 export async function fetchSimStatus(simId: number) {
   const res = await fetch(`${BASE}/simulations/${simId}/status`)
   if(!res.ok) throw new Error('Failed to fetch simulation status')
-  return res.json() as Promise<{ generating: boolean; advancing: boolean; current_time?: string }>
+  return res.json() as Promise<{ generating: boolean; advancing: boolean; current_time?: string; running: boolean }>
 }
 

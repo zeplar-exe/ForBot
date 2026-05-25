@@ -1,15 +1,15 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { fetchUsers, createUser, updateUser, deleteUser, generateSingleUser, fetchSimStatus } from './api'
+import { useParams } from 'react-router-dom'
+import { fetchUsers, createUser, updateUser, generateSingleUser, fetchSimStatus } from './api'
 
 export default function UsersView() {
     const params = useParams()
     const simId = params.simId ? Number(params.simId) : null
-    const navigate = useNavigate()
     const [users, setUsers] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [generating, setGenerating] = useState(false)
     const [serverAdvancing, setServerAdvancing] = useState(false)
+    const [running, setRunning] = useState<boolean>(false)
     const [showCreate, setShowCreate] = useState(false)
     const [editUser, setEditUser] = useState<any | null>(null)
     const [form, setForm] = useState({ username: '', signature: '', personality: '', forum_dedication: 0.5, active_start: 0, active_end: 23 })
@@ -25,17 +25,6 @@ export default function UsersView() {
 
     useEffect(() => { load() }, [simId])
 
-    useEffect(()=>{
-        const onAdvanced = (e:any) => {
-            if(!simId) return
-            if(e?.detail?.simId !== simId) return
-            load()
-        }
-        window.addEventListener('forbot:advanced', onAdvanced)
-        return ()=> window.removeEventListener('forbot:advanced', onAdvanced)
-    }, [simId])
-
-    // poll server status to set generating flag on load and periodically
     useEffect(() => {
         let mounted = true
         const poll = async () => {
@@ -43,8 +32,9 @@ export default function UsersView() {
             try {
                 const s = await fetchSimStatus(simId)
                 if (!mounted) return
-                setGenerating(!!s.generating)
-                setServerAdvancing(!!s.advancing)
+                setGenerating(s.generating)
+                setServerAdvancing(s.advancing)
+                setRunning(s.running)
             } catch (e) { /* ignore */ }
         }
         poll()
@@ -52,11 +42,9 @@ export default function UsersView() {
         return () => { mounted = false; clearInterval(id) }
     }, [simId])
 
-        // when generating transitions from true -> false, refresh the users list
         const prevGeneratingRef = useRef<boolean>(false)
         useEffect(()=>{
             if(prevGeneratingRef.current && !generating){
-                // generation finished elsewhere — reload the users
                 load()
             }
             prevGeneratingRef.current = generating
@@ -89,8 +77,6 @@ export default function UsersView() {
         } catch (e) { console.error(e); alert('generate failed') } finally { setLoading(false); setGenerating(false) }
     }
 
-
-
     const saveEdit = async () => {
         if (!simId || !editUser) return
         setLoading(true)
@@ -109,16 +95,6 @@ export default function UsersView() {
         } catch (e) { console.error(e); alert('save failed') } finally { setLoading(false) }
     }
 
-    const doDelete = async (uid: string) => {
-        if (!simId) return
-        if (!confirm('Delete user?')) return
-        setLoading(true)
-        try {
-            await deleteUser(simId, uid)
-            await load()
-        } catch (e) { console.error(e); alert('delete failed') } finally { setLoading(false) }
-    }
-
     if (!simId) return <div className="container"><p>Invalid simulation</p></div>
 
     return (
@@ -127,8 +103,8 @@ export default function UsersView() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <h2>Users</h2>
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setShowCreate(true)} disabled={loading || generating || serverAdvancing}>Add User</button>
-                        <button onClick={generateOne} disabled={loading || generating || serverAdvancing}>
+                        <button onClick={() => setShowCreate(true)} disabled={loading || generating || serverAdvancing || !running}>Add User</button>
+                        <button onClick={generateOne} disabled={loading || generating || serverAdvancing || !running}>
                             Generate (LLM)
                             {generating && <span className="spinner" aria-hidden="true" style={{ marginLeft: 6 }} />}
                         </button>
@@ -141,9 +117,8 @@ export default function UsersView() {
                             <strong>{u.username}</strong> <span>({u.forum_dedication})</span>
                             <div>{u.signature}</div>
                             <div style={{ marginTop: 6 }}>
-                                <button disabled={loading || generating || serverAdvancing} onClick={() => setEditUser({ ...u })}>Edit</button>
-                                <button disabled={loading || generating || serverAdvancing} onClick={() => doDelete(u.id)} style={{ marginLeft: 8 }}>Delete</button>
-                            </div>
+                            <button disabled={loading || generating || serverAdvancing || running !== true} onClick={() => setEditUser({ ...u })}>Edit</button>
+                                    </div>
                         </li>
                     ))}
                 </ul>

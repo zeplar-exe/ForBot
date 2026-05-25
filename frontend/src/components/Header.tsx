@@ -14,7 +14,7 @@ export default function Header({ simId: propSimId, forumName, onAdvance }: { sim
     const [hours, setHours] = useState(1)
     const [loading, setLoading] = useState(false)
     const [serverAdvancing, setServerAdvancing] = useState(false)
-    const [serverGenerating, setServerGenerating] = useState(false)
+    const [running, setRunning] = useState<boolean>(false)
     const [currentTime, setCurrentTime] = useState<string | null>(null)
 
 
@@ -44,8 +44,6 @@ export default function Header({ simId: propSimId, forumName, onAdvance }: { sim
             await advanceSimulation(simId, Number(hours))
             setShowAdvance(false)
             if (onAdvance) onAdvance()
-            // dispatch a global event so pages can refresh themselves when header advances time
-            try { window.dispatchEvent(new CustomEvent('forbot:advanced', { detail: { simId, hours: Number(hours) } })) } catch (e) { }
         } catch (e) {
             console.error('advance failed', e)
         } finally { setLoading(false) }
@@ -59,8 +57,8 @@ export default function Header({ simId: propSimId, forumName, onAdvance }: { sim
             try {
                 const s = await fetchSimStatus(simId)
                 if (!mounted) return
-                setServerAdvancing(!!s.advancing)
-                setServerGenerating(!!s.generating)
+                setServerAdvancing(s.advancing)
+                setRunning(s.running)
                 setCurrentTime(s.current_time ?? null)
             } catch (e) {
                 // ignore polling errors
@@ -118,7 +116,7 @@ export default function Header({ simId: propSimId, forumName, onAdvance }: { sim
                     {/* Only show advance controls when a simulation is active */}
                     {simId ? (
                         <>
-                            <button onClick={() => !loading && setShowAdvance(s => !s)} disabled={loading || serverAdvancing}>{showAdvance ? 'Close' : 'Advance Time'}</button>
+                            <button onClick={() => !loading && setShowAdvance(s => !s)} disabled={loading || serverAdvancing || !running}>{showAdvance ? 'Close' : 'Advance Time'}</button>
                             {showAdvance && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
                                     <input type="number" min={1} value={hours} onChange={e => setHours(Number(e.target.value || 1))} style={{ width: 80 }} disabled={loading} />
@@ -129,15 +127,6 @@ export default function Header({ simId: propSimId, forumName, onAdvance }: { sim
                             {(loading || serverAdvancing) && <span className="spinner" aria-hidden="true" style={{ marginLeft: 6 }} />}
                         </>
                     ) : null}
-                    {/* Users navigation button next to Advance controls */}
-                    {simId && (
-                        <Link to={`/simulations/${simId}/users`} style={{ marginLeft: 8 }}>
-                            <button>
-                                Users
-                                {serverGenerating && <span className="spinner" aria-hidden="true" style={{ marginLeft: 6 }} />}
-                            </button>
-                        </Link>
-                    )}
                 </div>
             </div>
         </header>

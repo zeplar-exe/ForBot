@@ -1,5 +1,7 @@
 .DS_Store
 *.sqlite
+backend/simulations
+backend/res
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 import './styles.css'
-import { fetchSimulations, createSimulation, fetchForum } from './api'
+import { fetchSimulations, createSimulation, fetchForum, setSimulationState } from './api'
 import { formatDisplayDate } from './date'
 import Header from './components/Header'
 import ScrollToTop from './ScrollToTop'
 import SimulationView from './SimulationView'
 import ThreadView from './ThreadView'
 import UsersView from './UsersView'
+import AISettings from './AISettings'
 
-type Sim = { id: number; users: number; threads: number; posts: number }
+type Sim = { id: number; users: number; threads: number; posts: number; running?: boolean }
 
 function Home() {
   const [sims, setSims] = useState<Sim[]>([])
@@ -17,7 +18,7 @@ function Home() {
   const [simMeta, setSimMeta] = useState<Record<number, { name: string; created_date?: string }>>({})
   const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ name: '', purpose: '', topic: '' })
+  const [form, setForm] = useState({ name: '', topic: '' })
   const [formCreatedDate, setFormCreatedDate] = useState<string | undefined>(undefined)
 
 
@@ -77,11 +78,23 @@ function Home() {
         {sims.length === 0 && !loading && <li>No simulations yet</li>}
         {sims.map(s => (
           <li key={s.id}>
-            <Link to={`/simulations/${s.id}`}><strong>#{s.id} {simNames[s.id] ? `- ${simNames[s.id]}` : ''}</strong></Link>
-            {simMeta[s.id] && simMeta[s.id].created_date && (
-              <div><small>created: {formatDisplayDate(simMeta[s.id].created_date)}</small></div>
-            )}
-            <div>users: {s.users} • threads: {s.threads} • posts: {s.posts}</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div>
+                <Link to={`/simulations/${s.id}`}><strong>#{s.id} {simNames[s.id] ? `- ${simNames[s.id]}` : ''}</strong></Link>
+                {simMeta[s.id] && simMeta[s.id].created_date && (
+                  <div><small>created: {formatDisplayDate(simMeta[s.id].created_date)}</small></div>
+                )}
+                <div>users: {s.users} • threads: {s.threads} • posts: {s.posts}</div>
+              </div>
+              <div>
+                <button onClick={async ()=>{
+                  try{
+                    await setSimulationState(s.id, !s.running)
+                    await load()
+                  }catch(e){ console.error('toggle failed', e); alert('Failed to toggle simulation state: '+(e instanceof Error ? e.message : String(e))) }
+                }}>{s.running ? 'Stop' : 'Start'}</button>
+              </div>
+            </div>
           </li>
         ))}
       </ul>
@@ -94,12 +107,6 @@ function Home() {
               Forum name
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. World of Warcraft Forum" />
               <button className="hint" title="A short name for your forum">?</button>
-            </label>
-
-            <label>
-              Purpose (short answer)
-              <input value={form.purpose} onChange={e => setForm({ ...form, purpose: e.target.value })} placeholder="What is this forum for?" />
-              <button className="hint" title="One-sentence purpose of the forum">?</button>
             </label>
 
             <label>
@@ -119,7 +126,7 @@ function Home() {
               <button onClick={async () => {
                 setLoading(true)
                 try {
-                  const payload: any = { name: form.name, purpose: form.purpose, topic: form.topic }
+                  const payload: any = { name: form.name, topic: form.topic }
                   if (formCreatedDate) payload.created_date = formCreatedDate
                   const resp = await createSimulation(payload)
                   setShowCreate(false)
@@ -145,6 +152,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/simulations/:simId" element={<SimulationView />} />
+  <Route path="/simulations/:simId/ai-settings" element={<AISettings />} />
         <Route path="/simulations/:simId/threads/:threadId" element={<ThreadView />} />
         <Route path="/simulations/:simId/users" element={<UsersView />} />
       </Routes>

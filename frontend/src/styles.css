@@ -43,10 +43,13 @@ body{margin:0;color:#111;display:flex;flex-direction:column}
 .post-list{list-style:none;padding:0;margin:0;width:100%;max-width:960px}
 .post-empty{padding:12px;color:#666}
 .post-item{display:flex;gap:12px;padding:12px;margin-bottom:12px;border:1px solid #eee;border-radius:8px;background:#fff}
-.post-avatar{width:56px;height:56px;background:#e9e9ef;border-radius:6px;flex:0 0 56px;display:inline-block}
+.post-avatar{width:56px;height:56px;background:#e9e9ef;border-radius:6px;flex:0 0 56px;display:inline-block;object-fit:cover}
 .post-body{flex:1}
 .post-item strong{display:inline-block;margin-right:8px}
 .post-item small{color:#666;margin-left:6px}
+
+.thread-author-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.thread-avatar{width:22px;height:22px;border-radius:50%;background:#e9e9ef;object-fit:cover;display:inline-block}
 
 /* Narrower posts option (60%) */
 .post-list.narrow{width:60%}
