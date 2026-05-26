@@ -65,13 +65,13 @@ export default function ThreadView() {
             {posts.length === 0 && <li className="post-empty">No posts yet</li>}
             {posts.map(p => (
               <li key={p.id} className="post-item">
-                {toImageSrc(userMap[p.author]?.profile_picture) ? (
-                  <img className="post-avatar" src={toImageSrc(userMap[p.author]?.profile_picture) ?? ''} alt={`${userMap[p.author]?.username ?? 'User'} avatar`} />
+                {toImageSrc(userMap[p.author_id]?.profile_picture) ? (
+                  <img className="post-avatar" src={toImageSrc(userMap[p.author_id]?.profile_picture) ?? ''} alt={`${userMap[p.author_id]?.username ?? 'User'} avatar`} />
                 ) : (
                   <div className="post-avatar" aria-hidden="true" />
                 )}
                 <div className="post-body">
-                  <div style={{ marginBottom: 6 }}><strong>{userMap[p.author]?.username ?? p.author}</strong> <small>{formatDisplayDate(p.created_date ?? p.timestamp_created)}</small></div>
+                  <div style={{ marginBottom: 6 }}><strong>{userMap[p.author_id]?.username ?? p.author_id}</strong> <small>{formatDisplayDate(p.created_date ?? p.timestamp_created)}</small></div>
                   <div dangerouslySetInnerHTML={{ __html: (p.content ? escapeHtml(p.content).replace(/\n/g, '<br/>') : '') }} />
                 </div>
               </li>

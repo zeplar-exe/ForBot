@@ -2,15 +2,18 @@ from fastapi import FastAPI, HTTPException
 import logging
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional, cast
-from backend.generate_det import generate_profile_picture
+from generate_det import generate_profile_picture
 from simulation import Simulation
 from data import *
 from serialization import (
     sim_to_dict,
     parse_date,
+    date_to_iso,
     serialize_user_full,
     serialize_model_config,
-    deserialize_profile_picture_b64,
+    serialize_thread,
+    serialize_post,
+    SimulationEncoder,
 )
 from fastapi.middleware.cors import CORSMiddleware
 import json
@@ -199,7 +202,7 @@ def save_simulation(sim_id: int):
     try:
         fp = sim_filepath(sim_id)
         with fp.open("w", encoding="utf-8") as f:
-            json.dump(sim_to_dict(sim), f, indent=2)
+            json.dump(sim_to_dict(sim), f, indent=2, cls=SimulationEncoder)
         logger.info(f"Saved simulation {sim_id} to {fp}")
     except Exception as e:
         logger.exception(f"Failed to save simulation {sim_id}: {e}")
@@ -249,9 +252,7 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
         else:
             active_hours = [0, 24]
 
-        profile_picture = deserialize_profile_picture_b64(u.get("profile_picture"))
-        if profile_picture is None:
-            profile_picture = generate_profile_picture()
+        profile_picture = u.get("profile_picture") or generate_profile_picture()
 
         user = User(
             username=u.get("username", ""),
@@ -315,20 +316,8 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
 
         if post is None:
             continue
-
-        reply_ids = p.get("reply_to") or []
-        resolved: List[Post] = []
-
-        for rid in reply_ids:
-            try:
-                rid_str = str(rid)
-            except Exception:
-                continue
-
-            if rid_str in posts_by_id:
-                resolved.append(posts_by_id[rid_str])
         
-        post.reply_to = resolved
+        post.reply_to = p.get("reply_to", [])
 
     return sim
 
@@ -492,7 +481,14 @@ def get_simulation_summary(sim_id: int):
 @app.get("/simulations/{sim_id}/forum")
 def get_sim_forum(sim_id: int):
     sim = get_sim_or_404(sim_id)
-    return dataclass_asdict(sim.forum)
+    f = sim.forum
+    return {
+        "name": f.name,
+        "topic": f.topic,
+        "topic_summary": f.topic_summary,
+        "created_date": date_to_iso(f.created_date),
+        "documents": [dataclass_asdict(d) for d in f.documents],
+    }
 
 
 @app.get("/simulations/{sim_id}/status")
@@ -607,13 +603,13 @@ def update_user_manual(sim_id: int, user_id: str, body: Dict[str, Any]):
 @app.get("/simulations/{sim_id}/threads")
 def get_sim_threads(sim_id: int):
     sim = get_sim_or_404(sim_id)
-    return [dataclass_asdict(t) for t in sim.threads]
+    return [serialize_thread(t) for t in sim.threads]
 
 
 @app.get("/simulations/{sim_id}/posts")
 def get_sim_posts(sim_id: int):
     sim = get_sim_or_404(sim_id)
-    return [dataclass_asdict(p) for p in sim.posts]
+    return [serialize_post(p) for p in sim.posts]
 
 
 @app.get("/simulations/{sim_id}/posts/{post_id}")
@@ -621,5 +617,5 @@ def get_sim_post(sim_id: int, post_id: str):
     sim = get_sim_or_404(sim_id)
     for p in sim.posts:
         if p.id == post_id:
-            return dataclass_asdict(p)
+            return serialize_post(p)
     raise HTTPException(status_code=404, detail="Post not found")

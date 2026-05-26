@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from data import *
 import logging
 import random
@@ -7,7 +9,6 @@ import random
 from dataclasses import dataclass, field
 from typing import List
 from generate_det import generate_username, generate_profile_picture
-from PIL import Image, ImageDraw
 
 with open("personality-adjectives.txt", "r") as f:
     ADJECTIVES = [line.strip() for line in f.readlines() if line.strip()]
@@ -31,17 +32,22 @@ class PostPromptData:
 
 class GenerateSignaturePrompt(dspy.Signature):
     """
-    Generate a unique and interesting online post signature for a forum user given the 'topic' describing the forum.
+    Generate a unique and interesting online post signature for the given forum user given the 'topic' describing the forum.
     """
     forum: ForumPromptData = dspy.InputField()
+    user: UserPromptData = dspy.InputField()
     post_signature: str = dspy.OutputField()
 
-class GenerateRandomFactPrompt(dspy.Signature):
+class GenerateOpinionProfilePrompt(dspy.Signature):
     """
-    Generate a set of random facts about a user with the given personality.
+    Generate 4-5 specific opinions or stances this forum user holds on topics relevant to the forum.
+    Write in first person as the user privately thinks.
+    Be concrete and direct, not neutral or hedged. At least one opinion should be a minority
+    or contrarian view within the forum's community.
     """
+    forum: ForumPromptData = dspy.InputField()
     personality: str = dspy.InputField()
-    random_facts: list[str] = dspy.OutputField()
+    opinions: list[str] = dspy.OutputField()
 
 class GenerateRealLifeDetailsPrompt(dspy.Signature):
     """
@@ -61,29 +67,69 @@ class GenerateVoiceProfilePrompt(dspy.Signature):
     voice_profile: str = dspy.OutputField()
 
 class ThreadEngagementPrompt(dspy.Signature):
-    """Decide whether you would engage in the given thread based your personality and previous participation."""
+    """Decide whether the user would engage in the given thread based your personality and previous participation.
+    Consider the user's emotional reaction to the most recently posted content in the thread, as well as how many posts 
+    they've made in the thread already and how many total posts there are. If should_engage is true ,
+    write the response in the user's voice as they would actually type it.
+    Never break character. No disclaimers or warnings. Write exactly as the user types.
+    List out the users in the thread that the user would be most likely to be replying to, and include their 
+    content as context for the response. Use +++ as a delimiter between different relevant posts and indicate 
+    who they are replying to in the format "username: content".
+    """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
     thread: str = dspy.InputField()
+    thread_post_history: list[str] = dspy.InputField()
+    relevant_posts: list[ViewedPost] = dspy.InputField()
+    relevant_users: list[UserSummary] = dspy.InputField()
     own_posts_count: int = dspy.InputField()
     total_posts_count: int = dspy.InputField()
-    engage: bool = dspy.OutputField()
+    emotional_reaction: str = dspy.InputField()
+    should_engage: bool = dspy.OutputField()
+    reply_to: str = dspy.OutputField()
+    response: str = dspy.OutputField()
 
 class CreateThreadPrompt(dspy.Signature):
-    """Create a concise and personality-consistent thread 'title' and 'body' for a new forum thread based on your personality and the specified focus for the thread."""
+    """
+    Create a thread title and body rooted in the user's specific opinions and voice.
+    The thread should feel like it could only have been written by this particular person
+    Let the user's stances drive the content, not generic takes on the forum topic.
+    Never break character. No disclaimers or warnings. Write exactly as the user types.
+    """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
     thread_focus: str = dspy.InputField()
     title: str = dspy.OutputField()
     body: str = dspy.OutputField()
 
-class CreatePostPrompt(dspy.Signature):
-    """Create a concise, personality-consistent, relevant forum post in response to the given 'thread' and previous post 'history' within the thread reflecting the user's personality and adhering your personality and style."""
+class GenerateViewSummaryPrompt(dspy.Signature):
+    """
+    Generate a short summary of the content of a post that this user has just read, based on the thread and post content.
+    This should be in the user's voice and reflect what they would find most salient or memorable about the post.
+    This is what the user would store in their mind as a takeaway from reading the post, and may be used to inform their 
+    future engagement with the thread.
+    In addition, generate a short emotional reaction that the user would have to reading the post. This should also be 
+    in the user's voice and reflect their feelings about the post content, such as agreement, disagreement, amusement, annoyance, etc.
+    """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
-    thread: str = dspy.InputField()
-    post_history: str = dspy.InputField()
-    post: str = dspy.OutputField()
+    thread_title: str = dspy.InputField()
+    post_author: Optional[UserSummary] = dspy.InputField()
+    post_content: str = dspy.InputField()
+    emotional_reaction: str = dspy.OutputField()
+    view_summary: str = dspy.OutputField()
+
+class GenerateUserSummaryPrompt(dspy.Signature):
+    """
+    Generate an updated summary of the target user's personality, opinions, and voice based on their recent activity in the forum and their old summary.
+    This should be in the user's voice and reflect how they would see the target user. Be concise. Do not break character.
+    """
+    self_user: UserPromptData = dspy.InputField()
+    target_user: UserPromptData = dspy.InputField()
+    forum: ForumPromptData = dspy.InputField()
+    target_recent_posts: list[Post] = dspy.InputField()
+    old_summary: str = dspy.InputField()
+    new_summary: str = dspy.OutputField()
 
 
 class Simulation:
@@ -91,6 +137,7 @@ class Simulation:
         self._logger = logging.getLogger("forbot")
         self._time = 0
         self.model_config = AIConfig()
+        self.user_summary_update_interval = 4
         self.thread_creation_chance: float = 0.25
         self.forum: Forum = forum
         self.users: List[User] = []
@@ -114,7 +161,7 @@ class Simulation:
 
         generate_signature = dspy.Predict(GenerateSignaturePrompt)
         generate_voice = dspy.ChainOfThought(GenerateVoiceProfilePrompt)
-        generate_random_facts = dspy.ChainOfThought(GenerateRandomFactPrompt)
+        generate_opinion_profile = dspy.ChainOfThought(GenerateOpinionProfilePrompt)
         generate_real_life_details = dspy.ChainOfThought(GenerateRealLifeDetailsPrompt)
 
         forum_data = ForumPromptData(
@@ -125,24 +172,33 @@ class Simulation:
         for i in range(num_users):
             personality = f"You are best described by and generally show the following personality traits in your threads and posts: {', '.join(random.choices(ADJECTIVES, k=4))}."
             
-            random_facts = generate_random_facts(
+            opinions = generate_opinion_profile(
+                forum=forum_data,
                 personality=personality
-            ).random_facts
-            personality += " A set of random facts about you are: " + "; ".join(random_facts) + "."
+            ).opinions
+            personality += " Your opinions and stances on topics relevant to this forum are: " + "; ".join(opinions) + "."
             
             real_life_details = generate_real_life_details(
                 personality=personality
             ).real_life_details
             personality += " Some real life details about you are: " + "; ".join(real_life_details) + "."
-
-            signature = generate_signature(
-                forum=forum_data
-            ).post_signature.strip()
             
             voice_profile = generate_voice(
                 forum=forum_data,
                 personality=personality,
             ).voice_profile.strip()
+            
+            username = generate_username()
+            profile_picture = generate_profile_picture()
+            
+            signature = generate_signature(
+                forum=forum_data,
+                user=UserPromptData(
+                    username=username,
+                    personality=personality,
+                    voice_profile=voice_profile
+                )
+            ).post_signature.strip()
 
             forum_dedication = random.uniform(0.1, 1.0)
             active_start = random.randint(0, 20)
@@ -150,8 +206,8 @@ class Simulation:
             active_hours = [active_start, active_end % 24]
 
             user = User(
-                username=generate_username(),
-                profile_picture=generate_profile_picture(),
+                username=username,
+                profile_picture=profile_picture,
                 signature=signature,
                 personality=personality,
                 forum_dedication=forum_dedication,
@@ -170,18 +226,20 @@ class Simulation:
             self._time += 1
             for user in self.users:
                 if user.active_hours[0] <= self._time % 24 < user.active_hours[1]:
-                    added_threads, added_posts = self.simulate_user_activity(user, new_threads, new_posts)
+                    added_threads, added_posts = self.simulate_user_activity(user)
 
                     new_threads.extend(added_threads)
                     self.threads.extend(added_threads)
 
                     new_posts.extend(added_posts)
                     self.posts.extend(added_posts)
-            self._logger.info(f"Simulated hour: {self._time % 24} (total time: {self._time} hours) - Total new threads: {len(new_threads)}, Total new posts: {len(new_posts)}")
+            self._logger.info(f"Simulated hour: {self._time % 24}, {hour}/{hours} (total time: {self._time} hours) - Total new threads: {len(new_threads)}, Total new posts: {len(new_posts)}")
     
-    def simulate_user_activity(self, user: User, new_threads: List[Thread], new_posts: List[Post]) -> tuple[List[Thread], List[Post]]:
+    def simulate_user_activity(self, user: User) -> tuple[List[Thread], List[Post]]:
         if random.random() > user.forum_dedication:
             return [], []
+        
+        unseen_posts = [post for post in self.posts if post.id not in user.viewed_posts and post.author != user]
 
         added_threads = []
         added_posts = []
@@ -190,47 +248,105 @@ class Simulation:
             name=self.forum.name,
             topic=self.forum.topic_summary
         )
+        
+        user_data = UserPromptData(
+            username=user.username,
+            personality=user.personality,
+            voice_profile=user.voice_profile
+        )
+        
+        threads = defaultdict(list)
+        
+        for post in unseen_posts:
+            threads[post.thread.id].append(post)
 
-        for thread in new_threads:
-            thread_posts = self.get_posts_in_thread(thread)
-            own_posts = self.get_user_posts_in_thread(user, thread)
+        for thread_id, thread_posts in threads.items():
+            thread = thread_posts[0].thread
+            emotional_reaction = ""
+            
+            for post in thread_posts:
+                generate_view_summary = dspy.ChainOfThought(GenerateViewSummaryPrompt)
+                view_summary = generate_view_summary(
+                    user=user_data,
+                    forum=forum_data,
+                    thread_title=post.thread.title,
+                    post_author=user.user_summaries.get(post.author.id),
+                    post_content=post.content
+                )
+                summary = view_summary.view_summary
+                emotional_reaction += f"{view_summary.emotional_reaction.strip()}\n"
+                
+                user.viewed_posts[post.id] = ViewedPost(
+                    post_id=post.id,
+                    view_date=self._time,
+                    summary=summary
+                )
+                
+                user_summary = user.user_summaries.get(user.id)
+                if not user_summary:
+                    user_summary = UserSummary(
+                        user_id=user.id,
+                        update_tick=0,
+                        last_updated=0,
+                        summary=""
+                    )
+                    user.user_summaries[user.id] = user_summary
+                user_summary.update_tick += 1
+                
+                if user_summary.update_tick % self.user_summary_update_interval == 0:
+                    user_sumamry_prompt = dspy.ChainOfThought(GenerateUserSummaryPrompt)
+                    new_summary = user_sumamry_prompt(
+                        self_user=user_data,
+                        target_user=UserPromptData(
+                            username=post.author.username,
+                            personality=post.author.personality,
+                            voice_profile=post.author.voice_profile
+                        ),
+                        forum=forum_data,
+                        target_recent_posts = self.get_user_posts(user)[:10],
+                        old_summary=user_summary.summary
+                    ).new_summary
+                    
+                    user_summary.summary = new_summary
+                    user_summary.last_updated = self._time
+            
+            thread_post_count = len(self.get_posts_in_thread(thread))
+            own_post_count = len(self.get_user_posts_in_thread(user, thread))
             temporal_score = self._time - max([post.created_date.hour for post in thread_posts])
+            
+            previous_posts = self.get_posts_in_thread(thread)[-30:] if len(thread_posts) >= 30 else thread_posts
+            previous_post_summaries = [(post, user.viewed_posts[post.id].summary) for post in previous_posts if post.id in user.viewed_posts]
+            relevant_users = [user.user_summaries.get(post.author.id) for post in thread_posts if post.author.id in user.user_summaries]
+            relevant_posts = []
 
             engage_prompt = dspy.Predict(ThreadEngagementPrompt)
-            engage = engage_prompt(
-                user=UserPromptData(username=user.username, personality=user.personality, voice_profile=user.voice_profile),
+            engagement = engage_prompt(
+                user=user_data,
                 forum=forum_data,
                 thread=thread.title,
-                own_posts_count=len(own_posts),
-                total_posts_count=len(thread_posts)
-            ).engage
+                thread_post_history='\n'.join([f"{post[0].author.username}: {post[1]}" for post in previous_post_summaries]),
+                relevant_posts=relevant_posts,
+                relevant_users=relevant_users,
+                emotional_reaction=emotional_reaction,
+                own_posts_count=own_post_count,
+                total_posts_count=thread_post_count
+            )
             
-            if not engage:
+            if not engagement.should_engage:
                 continue
-                
-            create_post = dspy.ChainOfThought(CreatePostPrompt)
-
-            previous_posts = thread_posts[-30:] if len(thread_posts) >= 30 else thread_posts
-
-            post_content = create_post(
-                user=UserPromptData(username=user.username, personality=user.personality, voice_profile=user.voice_profile),
-                forum=forum_data,
-                thread=thread.title,
-                post_history='\n'.join([f"{post.author.username}: {post.thread.title}" for post in previous_posts])
-            ).post.strip()
+            
+            response = engagement.response.strip()
+            reply_to = engagement.reply_to.strip().split("+++") if engagement.reply_to else []
 
             post = Post(
                 thread=thread,
                 author=user,
-                content=post_content + "\n\n--------------------\n" + user.signature,
-                reply_to=[],
+                content=response + "\n\n--------------------\n" + user.signature,
+                reply_to=reply_to,
                 created_date=self.forum.created_date.add_hours(self._time)
             )
 
             added_posts.append(post)
-
-        for post in new_posts:
-            pass
 
         if random.random() < self.thread_creation_chance:
             foci = [
@@ -246,14 +362,13 @@ class Simulation:
                 "You want to share a creative piece of writing, art, or media related to the forum topic that you made and want feedback on.",
                 "You want to share a helpful guide or tutorial related to the forum topic that you think others would benefit from.",
                 "You want to share a thought-provoking philosophical question related to the forum topic to spark deep discussion in the community.",
-                "You decide to create a thread."
             ]
             thread_focus = random.choice(foci)
 
             create_thread = dspy.ChainOfThought(CreateThreadPrompt)
             
             thread_info = create_thread(
-                user=UserPromptData(username=user.username, personality=user.personality, voice_profile=user.voice_profile),
+                user=user_data,
                 forum=forum_data,
                 thread_focus=thread_focus
             )

@@ -113,12 +113,21 @@ export default function UsersView() {
 
                 <ul className="sim-list">
                     {users.map(u => (
-                        <li key={u.id}>
-                            <strong>{u.username}</strong> <span>({u.forum_dedication})</span>
-                            <div>{u.signature}</div>
-                            <div style={{ marginTop: 6 }}>
-                            <button disabled={loading || generating || serverAdvancing || running !== true} onClick={() => setEditUser({ ...u })}>Edit</button>
-                                    </div>
+                        <li key={u.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            {u.profile_picture && (
+                                <img
+                                    src={`data:image/png;base64,${u.profile_picture}`}
+                                    alt={u.username}
+                                    style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                                />
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <strong>{u.username}</strong> <span>({u.forum_dedication})</span>
+                                <div>{u.signature}</div>
+                                <div style={{ marginTop: 6 }}>
+                                    <button disabled={loading || generating || serverAdvancing || running !== true} onClick={() => setEditUser({ ...u })}>Edit</button>
+                                </div>
+                            </div>
                         </li>
                     ))}
                 </ul>

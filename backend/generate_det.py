@@ -2,6 +2,8 @@ from PIL import Image, ImageDraw
 import random
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from io import BytesIO
+import base64
 
 USERNAME_CORPUS = []
 
@@ -92,49 +94,37 @@ def generate_username(max_length=12, n=3, candidates=25):
     
     return base.capitalize()
 
-def generate_profile_picture(w=256, h=256):
+def generate_profile_picture(w=256, h=256) -> str:
     bg_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     img = Image.new('RGB', (w, h), bg_color)
     draw = ImageDraw.Draw(img)
-    
-    num_shapes = random.randint(5, 15)
-    
-    for _ in range(num_shapes):
+
+    for _ in range(random.randint(5, 15)):
         shape_type = random.choice(['rectangle', 'oval', 'triangle'])
         color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        
+
         if shape_type == 'rectangle':
-            x1 = random.randint(0, w)
-            y1 = random.randint(0, h)
-            x2 = random.randint(x1, w)
-            y2 = random.randint(y1, h)
-            draw.rectangle([x1, y1, x2, y2], fill=color)
-        
+            x1, y1 = random.randint(0, w), random.randint(0, h)
+            draw.rectangle([x1, y1, random.randint(x1, w), random.randint(y1, h)], fill=color)
         elif shape_type == 'oval':
-            x1 = random.randint(0, w)
-            y1 = random.randint(0, h)
-            x2 = random.randint(x1, w)
-            y2 = random.randint(y1, h)
-            draw.ellipse([x1, y1, x2, y2], fill=color)
-        
+            x1, y1 = random.randint(0, w), random.randint(0, h)
+            draw.ellipse([x1, y1, random.randint(x1, w), random.randint(y1, h)], fill=color)
         elif shape_type == 'triangle':
-            points = [
-                (random.randint(0, w), random.randint(0, h)),
-                (random.randint(0, w), random.randint(0, h)),
-                (random.randint(0, w), random.randint(0, h))
-            ]
-            draw.polygon(points, fill=color)
-    
-    return img
+            draw.polygon([(random.randint(0, w), random.randint(0, h)) for _ in range(3)], fill=color)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 if __name__ == "__main__":
     for _ in range(5):
         print(generate_username())
-    
-    profile_pic = generate_profile_picture(256, 256)
+
+    b64 = generate_profile_picture(256, 256)
+    img = Image.open(BytesIO(base64.b64decode(b64)))
     plt.figure(figsize=(6, 6))
-    plt.imshow(profile_pic)
+    plt.imshow(img)
     plt.axis('off')
     plt.title("Random Profile Picture")
     plt.tight_layout()

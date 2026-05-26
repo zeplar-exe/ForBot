@@ -135,16 +135,16 @@ export default function SimulationView(){
           <li key={th.id}>
             <Link to={`/simulations/${simId}/threads/${th.id}`}><strong>{th.title}</strong></Link>
             <div className="thread-author-row">
-              {toImageSrc(userMap[th.author]?.profile_picture) ? (
+              {toImageSrc(userMap[th.author_id]?.profile_picture) ? (
                 <img
                   className="thread-avatar"
-                  src={toImageSrc(userMap[th.author]?.profile_picture) ?? ''}
-                  alt={`${userMap[th.author]?.username ?? 'User'} avatar`}
+                  src={toImageSrc(userMap[th.author_id]?.profile_picture) ?? ''}
+                  alt={`${userMap[th.author_id]?.username ?? 'User'} avatar`}
                 />
               ) : (
                 <div className="thread-avatar" aria-hidden="true" />
               )}
-              <span>by {userMap[th.author]?.username ?? th.author}</span>
+              <span>by {userMap[th.author_id]?.username ?? th.author_id}</span>
             </div>
           </li>
         ))}

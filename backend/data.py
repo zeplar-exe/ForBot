@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import List, Optional
 import uuid
-from PIL import Image
 
 
 type UserId = str
@@ -58,21 +57,22 @@ class ThreadCategory:
 @dataclass
 class ViewedPost:
     post_id: PostId
-    view_date: Date
+    view_date: int
     summary: Optional[str] = None
 
 
 @dataclass
 class UserSummary:
     user_id: UserId
-    last_updated: Date
+    update_tick: int
+    last_updated: int
     summary: str
 
 
 @dataclass
 class User:
     username: str
-    profile_picture: Image.Image
+    profile_picture: str
     signature: str
     personality: str
     forum_dedication: float
@@ -97,6 +97,6 @@ class Post:
     thread: Thread
     author: User
     content: str
-    reply_to: List['Post']
+    reply_to: List[str] = field(default_factory=list)
     created_date: Date = field(default_factory=lambda: Date(datetime.now(), 0))
     id: PostId = field(default_factory=lambda: str(uuid.uuid4()))
