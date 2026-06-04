@@ -3,7 +3,10 @@
 backend/simulations
 backend/res
 backend/mlruns
+backend/backups
 mlflow.db
+backend/scripts/**/*.json
+backend/scripts/**/*.jsonl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
