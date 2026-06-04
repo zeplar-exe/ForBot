@@ -78,7 +78,7 @@ def sim_to_dict(sim) -> Dict[str, Any]:
             "topic": sim.forum.topic,
             "topic_summary": sim.forum.topic_summary,
             "created_date": sim.forum.created_date.isoformat(),
-            "documents": [dataclass_asdict(d) for d in sim.forum.documents],
+            "documents": [serialize_document(d) for d in sim.forum.documents],
         },
         "model_config": None,
         "time": sim._time,
@@ -86,12 +86,11 @@ def sim_to_dict(sim) -> Dict[str, Any]:
         "users": [],
         "threads": [],
         "posts": [],
-        "stimuli": [],
-        "documents": [],
+        "stimuli": []
     }
 
     for u in sim.users:
-        data["users"].append(dataclass_asdict(u))
+        data["users"].append(serialize_user_full(u))
 
     for t in sim.threads:
         data["threads"].append(serialize_thread(t))
@@ -102,10 +101,7 @@ def sim_to_dict(sim) -> Dict[str, Any]:
     for s in sim.stimuli:
         data["stimuli"].append(serialize_stimulus(s))
 
-    for d in sim.documents.values():
-        data["documents"].append(serialize_document(d))
-
     if sim.model_config is not None:
-        data["model_config"] = dataclass_asdict(sim.model_config)
+        data["model_config"] = serialize_model_config(sim)
 
     return data

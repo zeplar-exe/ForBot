@@ -1,0 +1,17 @@
+<div id="document-list" class="scroll-list">
+  {% if documents %}
+    {% for d in documents %}
+    <div class="row" style="align-items:flex-start; padding:8px 12px;">
+      <div class="grow">
+        <div style="font-weight:600;">{{ d.title }}</div>
+        {% if d.source %}<div class="muted small">{{ d.source }}</div>{% endif %}
+        {% if d.summary %}<div class="muted small" style="margin-top:2px;">{{ d.summary }}</div>{% endif %}
+      </div>
+      <button class="danger" hx-delete="/sim/{{ sim_id }}/documents/{{ d.id }}"
+              hx-target="#document-list" hx-swap="outerHTML">✕</button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="list-pad muted small">No documents yet.</div>
+  {% endif %}
+</div>

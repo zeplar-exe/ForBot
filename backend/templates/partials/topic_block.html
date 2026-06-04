@@ -1,0 +1,10 @@
+<div id="topic-block" class="topic-box">
+  <div class="muted small" style="text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">Topic</div>
+  <div>{{ forum.topic }}</div>
+  {% if status.running %}
+  <button class="small" style="margin-top:10px;"
+          onclick="document.getElementById('topic-input').value = {{ forum.topic | tojson }}; toggleModal('topic-modal', true)">
+    Edit topic
+  </button>
+  {% endif %}
+</div>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ForBot{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <style>
+    :root {
+      --bg: #1a1b1e;
+      --panel: #25262b;
+      --panel-alt: #2c2e33;
+      --border: #373a40;
+      --text: #c1c2c5;
+      --muted: #868e96;
+      --accent: #4dabf7;
+      --accent-dim: #1971c2;
+      --danger: #e03131;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+    header.site {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 0;
+      margin-bottom: 24px;
+    }
+    header.site .container { display: flex; align-items: center; gap: 12px; }
+    header.site .brand { font-weight: 700; font-size: 18px; color: var(--text); }
+    header.site .brand a { color: var(--text); }
+    .crumbs { color: var(--muted); font-size: 14px; }
+    .crumbs a { color: var(--muted); }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    h1, h2, h3 { color: #e9ecef; margin: 0 0 4px; }
+    .muted { color: var(--muted); }
+    .small { font-size: 13px; }
+    button, .btn {
+      font: inherit; cursor: pointer; color: var(--text);
+      background: var(--panel-alt); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 12px;
+    }
+    button:hover:not(:disabled), .btn:hover { background: #34373d; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+    button.danger { background: transparent; border-color: var(--border); color: var(--muted); }
+    button.danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+    input, textarea, select {
+      font: inherit; color: var(--text); background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; width: 100%;
+    }
+    textarea { resize: vertical; }
+    label { display: block; margin-bottom: 10px; font-size: 14px; }
+    label > span.lbl { display: block; margin-bottom: 4px; color: var(--muted); font-size: 13px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+    }
+    .row:last-child { border-bottom: none; }
+    .row:hover { background: var(--panel-alt); }
+    .row .grow { flex: 1; min-width: 0; }
+    .row .title { font-weight: 600; font-size: 15px; }
+    .row .stats { display: flex; gap: 18px; text-align: center; color: var(--muted); font-size: 13px; }
+    .row .stats .n { display: block; color: var(--text); font-weight: 600; font-size: 15px; }
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px; background: var(--accent-dim); color: #fff;
+    }
+    .badge.off { background: var(--border); color: var(--muted); }
+    .section-title { margin: 28px 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .controls { display: flex; gap: 8px; margin: 16px 0; }
+    .nav-btns { display: flex; gap: 8px; margin-top: 12px; }
+    .post { display: flex; gap: 16px; padding: 18px 16px; border-bottom: 1px solid var(--border); }
+    .post:last-child { border-bottom: none; }
+    .post .avatar { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; background: var(--panel-alt); object-fit: cover; }
+    .post .body { flex: 1; min-width: 0; }
+    .post .byline { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    .post .byline .author { font-weight: 600; color: #e9ecef; }
+    .post .content { white-space: pre-wrap; word-wrap: break-word; }
+    .post .sig { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; font-style: italic; white-space: pre-wrap; }
+    .avatar-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--panel-alt); flex-shrink: 0; }
+    .topic-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 8px; }
+    .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+    .list-pad { padding: 12px 16px; }
+    /* Modals */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: none; align-items: flex-start; justify-content: center; padding: 60px 16px; z-index: 50;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px; width: 100%; max-width: 560px; max-height: 80vh; overflow-y: auto;
+    }
+    .modal h3 { margin-bottom: 12px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .scroll-list { max-height: 280px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; }
+    /* htmx indicators */
+    .indicator { display: none; }
+    .htmx-request .indicator { display: inline; }
+    .htmx-request.indicator { display: inline; }
+    .spinner {
+      display: inline-block; width: 13px; height: 13px; vertical-align: -2px;
+      border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="container">
+      <span class="brand"><a href="/">ForBot</a></span>
+      <span class="crumbs">{% block crumbs %}{% endblock %}</span>
+      <span class="header-actions">{% block header_actions %}{% endblock %}</span>
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+    function toggleModal(id, open) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('open', open === undefined ? !el.classList.contains('open') : open);
+    }
+    // Close a modal after a successful htmx form submit originating inside it.
+    document.body.addEventListener('htmx:afterRequest', function (e) {
+      const closeId = e.detail.elt.getAttribute('data-close-on-success');
+      if (closeId && e.detail.successful) {
+        toggleModal(closeId, false);
+        if (e.detail.elt.tagName === 'FORM') e.detail.elt.reset();
+      }
+    });
+  </script>
+</body>
+</html>

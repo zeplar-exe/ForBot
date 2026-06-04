@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Users — {{ forum.name }}{% endblock %}
+{% block crumbs %}/ <a href="/sim/{{ sim_id }}">{{ forum.name }}</a> / Users{% endblock %}
+{% block header_actions %}{% include 'partials/header_controls.html' %}{% endblock %}
+{% block content %}
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+    <h1>Users</h1>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button onclick="toggleModal('add-user-modal', true)" {% if not status.running %}disabled{% endif %}>Add User</button>
+      <form hx-post="/sim/{{ sim_id }}/generate-users" hx-target="#user-list" hx-swap="outerHTML"
+            style="display:flex; gap:6px; align-items:center; margin:0;">
+        <input type="number" name="count" min="1" value="1" style="width:56px;"
+               {% if not status.running %}disabled{% endif %}>
+        <button class="primary" type="submit" {% if not status.running %}disabled{% endif %}>
+          Generate (LLM) <span class="spinner indicator"></span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% include 'partials/user_rows.html' %}
+
+  <!-- Add user modal -->
+  <div id="add-user-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Create User</h3>
+      <form hx-post="/sim/{{ sim_id }}/users" hx-target="#user-list" hx-swap="outerHTML"
+            data-close-on-success="add-user-modal">
+        <label><span class="lbl">Username</span><input name="username"></label>
+        <label><span class="lbl">Signature</span><input name="signature"></label>
+        <label><span class="lbl">Personality</span><input name="personality"></label>
+        <label><span class="lbl">Forum dedication</span><input type="number" step="0.01" name="forum_dedication" value="0.5"></label>
+        <label><span class="lbl">Active start</span><input type="number" min="0" max="23" name="active_start" value="0"></label>
+        <label><span class="lbl">Active end</span><input type="number" min="0" max="23" name="active_end" value="23"></label>
+        <div class="modal-actions">
+          <button type="button" onclick="toggleModal('add-user-modal', false)">Cancel</button>
+          <button class="primary" type="submit">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit user modal (shared, populated by JS) -->
+  <div id="edit-user-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Edit User</h3>
+      <form hx-post="/sim/{{ sim_id }}/user-update" hx-target="#user-list" hx-swap="outerHTML"
+            data-close-on-success="edit-user-modal">
+        <input type="hidden" name="user_id" id="edit-user-id">
+        <label><span class="lbl">Username</span><input name="username" id="edit-user-username"></label>
+        <label><span class="lbl">Signature</span><input name="signature" id="edit-user-signature"></label>
+        <label><span class="lbl">Personality</span><input name="personality" id="edit-user-personality"></label>
+        <label><span class="lbl">Forum dedication</span><input type="number" step="0.01" name="forum_dedication" id="edit-user-dedication"></label>
+        <label><span class="lbl">Active start</span><input type="number" min="0" max="23" name="active_start" id="edit-user-start"></label>
+        <label><span class="lbl">Active end</span><input type="number" min="0" max="23" name="active_end" id="edit-user-end"></label>
+        <div class="modal-actions">
+          <button type="button" onclick="toggleModal('edit-user-modal', false)">Cancel</button>
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openEditUser(btn) {
+      const d = btn.dataset;
+      document.getElementById('edit-user-id').value = d.id;
+      document.getElementById('edit-user-username').value = d.username;
+      document.getElementById('edit-user-signature').value = d.signature;
+      document.getElementById('edit-user-personality').value = d.personality;
+      document.getElementById('edit-user-dedication').value = d.dedication;
+      document.getElementById('edit-user-start').value = d.start;
+      document.getElementById('edit-user-end').value = d.end;
+      toggleModal('edit-user-modal', true);
+    }
+  </script>
+{% endblock %}

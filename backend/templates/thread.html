@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ thread.title }} — ForBot{% endblock %}
+{% block crumbs %}/ <a href="/sim/{{ sim_id }}">{{ forum.name }}</a> / {{ thread.title }}{% endblock %}
+{% block header_actions %}{% include 'partials/header_controls.html' %}{% endblock %}
+{% block content %}
+  <h1>{{ thread.title }}</h1>
+  <div class="muted small">started by {{ thread.author }} &middot; {{ thread.created_display }} &middot; {{ posts|length }} posts</div>
+  {% if thread.summary %}
+  <div class="topic-box" style="margin-top:12px;">
+    <div class="muted small" style="text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">Summary</div>
+    <div>{{ thread.summary }}</div>
+  </div>
+  {% endif %}
+
+  <div class="card" style="margin-top:16px;">
+    {% for p in posts %}
+    <div class="post">
+      {% if p.avatar %}<img class="avatar" src="{{ p.avatar }}" alt="{{ p.author }}">{% else %}<div class="avatar"></div>{% endif %}
+      <div class="body">
+        <div class="byline">
+          <span class="author">{{ p.author }}</span>
+          <span class="muted small">{{ p.created_display }}</span>
+        </div>
+        <div class="content">{{ p.content }}</div>
+        {% if p.signature %}<div class="sig">{{ p.signature }}</div>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="empty">No posts yet.</div>
+    {% endfor %}
+  </div>
+{% endblock %}

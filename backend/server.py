@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse, Response
+from fastapi.templating import Jinja2Templates
 import logging
-from pydantic import BaseModel
 from typing import Dict, Any, List, Optional, cast
 from datetime import datetime, timedelta
 from generate_det import generate_profile_picture
@@ -8,15 +9,8 @@ from simulation import Simulation
 from data import *
 from serialization import (
     sim_to_dict,
-    serialize_user_full,
-    serialize_model_config,
-    serialize_thread,
-    serialize_post,
-    serialize_stimulus,
-    serialize_document,
     SimulationEncoder,
 )
-from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
 import dspy
@@ -37,6 +31,9 @@ LOG_FILE = "forbot.log"
 OLLAMA_API_BASE = "http://157.157.221.177:10902"
 
 app = FastAPI(title="ForBot Simulation Server")
+
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7)
 dspy.configure(lm=lm, adapter=dspy.JSONAdapter())
@@ -59,20 +56,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("forbot")
-
-app.add_middleware(
-    CORSMiddleware,
-    # Allow the local Vite dev servers (common ports 5173 and 5174)
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 simulations: Dict[int, Simulation] = {}
 simulations_running = set()
@@ -136,65 +119,6 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
 
     logger.info(f"Built LM: {cfg.model}")
     return built
-
-
-class AISettingsRequest(BaseModel):
-    model: Optional[str] = None
-    temperature: Optional[float] = None
-    top_p: Optional[float] = None
-    top_k: Optional[int] = None
-    frequency_penalty: Optional[float] = None
-    presence_penalty: Optional[float] = None
-    whitelist: Optional[List[str]] = None
-    thinking: Optional[str] = None
-    thread_creation_chance: Optional[float] = None
-
-
-@app.get("/models")
-def api_list_models():
-    ollama_models = get_installed_ollama_models()
-    return {"models": CLOUD_MODELS + ollama_models}
-
-
-@app.get("/simulations/{sim_id}/ai_settings")
-def api_get_ai_settings(sim_id: int):
-    sim = get_sim_or_404(sim_id)
-    cfg = dataclass_asdict(sim.model_config)
-    cfg["thread_creation_chance"] = sim.thread_creation_chance
-    return cfg
-
-
-@app.patch("/simulations/{sim_id}/ai_settings")
-def api_update_ai_settings(sim_id: int, body: AISettingsRequest):
-    sim = get_sim_or_404(sim_id)
-    cfg = sim.model_config
-
-    if body.model is not None:
-        cfg.model = body.model
-    if body.temperature is not None:
-        cfg.temperature = body.temperature
-    if body.top_p is not None:
-        cfg.top_p = body.top_p
-    if body.top_k is not None:
-        cfg.top_k = body.top_k
-    if body.frequency_penalty is not None:
-        cfg.frequency_penalty = body.frequency_penalty
-    if body.presence_penalty is not None:
-        cfg.presence_penalty = body.presence_penalty
-    if body.whitelist is not None:
-        cfg.whitelist = [x.strip() for x in body.whitelist if x.strip()]
-    if body.thinking is not None:
-        if body.thinking in ("low", "medium", "high"):
-            cfg.thinking = body.thinking
-    if body.thread_creation_chance is not None:
-        sim.thread_creation_chance = body.thread_creation_chance
-
-    sim._lm = build_lm(cfg)
-    save_simulation(sim_id)
-
-    result = dataclass_asdict(cfg)
-    result["thread_creation_chance"] = sim.thread_creation_chance
-    return result
 
 
 def save_simulation(sim_id: int):
@@ -382,96 +306,13 @@ def load_all_simulations():
             logger.info(f"Loaded simulation {sim_id} from {fp}")
         except Exception as e:
             logger.exception(f"Failed to load simulation from {fp}: {e}")
-    
+
     if sims:
         simulations.update(sims)
         next_sim_id = max_id + 1
 
 
 load_all_simulations()
-
-
-class CreateSimulationResponse(BaseModel):
-    id: int
-
-
-class CreateSimulationRequest(BaseModel):
-    name: Optional[str] = None
-    topic: Optional[str] = None
-    created_date: Optional[str] = None
-
-
-class GenerateUsersRequest(BaseModel):
-    num_users: int
-
-
-class AdvanceRequest(BaseModel):
-    hours: int
-
-
-class UpdateForumRequest(BaseModel):
-    name: Optional[str] = None
-    topic: Optional[str] = None
-    created_date: Optional[str] = None
-
-
-class StateRequest(BaseModel):
-    running: bool
-
-
-@app.patch("/simulations/{sim_id}/state")
-def api_set_simulation_state(sim_id: int, body: StateRequest):
-    sim = get_sim_or_404(sim_id)
-    if body.running:
-        simulations_running.add(sim_id)
-        sim._lm = build_lm(sim.model_config)
-    else:
-        simulations_running.discard(sim_id)
-    save_simulation(sim_id)
-    return {"running": body.running}
-
-
-@app.post("/simulations", response_model=CreateSimulationResponse)
-def create_simulation(body: CreateSimulationRequest):
-    global next_sim_id
-    
-    name = body.name if body.name is not None else "Default Forum Name"
-    topic = body.topic if body.topic is not None else "Default Forum Topic"
-    
-    summarize_forum = dspy.ChainOfThought(SummarizeForumPrompt)
-    topic_summary = summarize_forum(
-        document=topic
-    ).summary
-
-    cd: datetime = datetime.now()
-    if body.created_date:
-        cd = datetime.fromisoformat(body.created_date)
-
-    forum = Forum(name, topic, created_date=cd, topic_summary=topic_summary)
-
-    sim = Simulation(forum)
-
-    sim_id = next_sim_id
-    simulations[sim_id] = sim
-    next_sim_id += 1
-
-    logger.info(f"Created simulation {sim_id} with forum: {sim.forum}")
-    save_simulation(sim_id)
-    return CreateSimulationResponse(id=sim_id)
-
-
-@app.get("/simulations")
-def list_simulations() -> List[Dict[str, Any]]:
-    out = []
-    for sid, sim in simulations.items():
-        out.append({
-            "id": sid,
-            "users": len(sim.users),
-            "threads": len(sim.threads),
-            "posts": len(sim.posts),
-            "running": sid in simulations_running,
-        })
-    return out
 
 
 def get_sim_or_404(sim_id: int) -> Simulation:
@@ -490,254 +331,484 @@ def get_sim_or_404_running(sim_id: int, require_running: bool = False) -> Simula
     return sim
 
 
-@app.post("/simulations/{sim_id}/generate_users")
-def api_generate_users(sim_id: int, body: GenerateUsersRequest):
-    sim = get_sim_or_404_running(sim_id, require_running=True)
-    simulations_generating.add(sim_id)
-    try:
-        sim.generate_users(body.num_users)
-        save_simulation(sim_id)
-        return {"status": "ok", "generated": body.num_users}
-    finally:
-        simulations_generating.discard(sim_id)
+# ---------------------------------------------------------------------------
+# JSON: model list (used to populate the AI-settings model dropdown server-side)
+# ---------------------------------------------------------------------------
+
+@app.get("/models")
+def api_list_models():
+    ollama_models = get_installed_ollama_models()
+    return {"models": CLOUD_MODELS + ollama_models}
 
 
-@app.post("/simulations/{sim_id}/advance")
-def api_advance(sim_id: int, body: AdvanceRequest):
-    sim = get_sim_or_404_running(sim_id, require_running=True)
+# ===========================================================================
+# View helpers — shape in-memory objects into plain dicts for templates.
+# ===========================================================================
+
+def _display_date(forum: Forum, tick: int) -> str:
+    return (forum.created_date + timedelta(hours=tick)).strftime("%b %d, %Y %H:%M")
+
+
+def _avatar(raw: Optional[str]) -> str:
+    if not raw:
+        return ""
+    if raw.startswith("data:"):
+        return raw
+    return f"data:image/png;base64,{raw}"
+
+
+def _sims_view() -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": sid,
+            "name": sim.forum.name,
+            "topic": sim.forum.topic,
+            "created_display": sim.forum.created_date.strftime("%b %d, %Y"),
+            "users": len(sim.users),
+            "threads": len(sim.threads),
+            "posts": len(sim.posts),
+            "running": sid in simulations_running,
+        }
+        for sid, sim in sorted(simulations.items())
+    ]
+
+
+def _threads_view(sim: Simulation) -> List[Dict[str, Any]]:
+    post_counts: Dict[str, int] = {}
+    for p in sim.posts:
+        post_counts[p.thread.id] = post_counts.get(p.thread.id, 0) + 1
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "author": t.author.username,
+            "created_display": _display_date(sim.forum, t.created_tick),
+            "post_count": post_counts.get(t.id, 0),
+        }
+        for t in sorted(sim.threads, key=lambda t: t.created_tick, reverse=True)
+    ]
+
+
+def _users_view(sim: Simulation) -> List[Dict[str, Any]]:
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "signature": u.signature,
+            "personality": u.personality,
+            "forum_dedication": u.forum_dedication,
+            "active_start": u.active_hours[0] if u.active_hours else 0,
+            "active_end": u.active_hours[1] if len(u.active_hours) > 1 else 23,
+            "avatar": _avatar(u.profile_picture),
+        }
+        for u in sim.users
+    ]
+
+
+def _stimuli_view(sim: Simulation) -> List[Dict[str, Any]]:
+    return [{"id": s.id, "text": s.text, "created_tick": s.created_tick} for s in sim.stimuli]
+
+
+def _documents_view(sim: Simulation) -> List[Dict[str, Any]]:
+    return [
+        {"id": d.id, "title": d.title, "source": d.source, "summary": d.summary}
+        for d in sim.documents.values()
+    ]
+
+
+def _sim_status(sim_id: int) -> Dict[str, Any]:
+    sim = simulations[sim_id]
+    return {
+        "sim_id": sim_id,
+        "running": sim_id in simulations_running,
+        "advancing": sim_id in simulations_advancing,
+        "generating": sim_id in simulations_generating,
+        "current_time_display": _display_date(sim.forum, sim._time),
+    }
+
+
+def _ctx(request: Request, **kw) -> Dict[str, Any]:
+    base = {"request": request}
+    base.update(kw)
+    return base
+
+
+# ===========================================================================
+# HTML pages
+# ===========================================================================
+
+@app.get("/", response_class=HTMLResponse)
+def web_home(request: Request):
+    return templates.TemplateResponse("home.html", _ctx(request, sims=_sims_view()))
+
+
+@app.get("/sim/{sim_id}", response_class=HTMLResponse)
+def web_simulation(request: Request, sim_id: int):
+    sim = get_sim_or_404(sim_id)
+    forum = sim.forum
+    return templates.TemplateResponse(
+        "simulation.html",
+        _ctx(
+            request,
+            sim_id=sim_id,
+            status=_sim_status(sim_id),
+            forum={
+                "name": forum.name,
+                "topic": forum.topic,
+                "created_display": forum.created_date.strftime("%b %d, %Y"),
+            },
+            threads=_threads_view(sim),
+            stimuli=_stimuli_view(sim),
+            documents=_documents_view(sim),
+        ),
+    )
+
+
+@app.get("/sim/{sim_id}/thread/{thread_id}", response_class=HTMLResponse)
+def web_thread(request: Request, sim_id: int, thread_id: str):
+    sim = get_sim_or_404(sim_id)
+    forum = sim.forum
+
+    thread = next((t for t in sim.threads if t.id == thread_id), None)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="Thread not found")
+
+    thread_posts = sorted(sim.get_posts_in_thread(thread), key=lambda p: p.created_tick)
+    posts = [
+        {
+            "author": p.author.username,
+            "avatar": _avatar(p.author.profile_picture),
+            "content": p.content,
+            "signature": p.author.signature,
+            "created_display": _display_date(forum, p.created_tick),
+        }
+        for p in thread_posts
+    ]
+
+    return templates.TemplateResponse(
+        "thread.html",
+        _ctx(
+            request,
+            sim_id=sim_id,
+            status=_sim_status(sim_id),
+            forum={"name": forum.name},
+            thread={
+                "title": thread.title,
+                "author": thread.author.username,
+                "summary": thread.summary,
+                "created_display": _display_date(forum, thread.created_tick),
+            },
+            posts=posts,
+        ),
+    )
+
+
+@app.get("/sim/{sim_id}/users", response_class=HTMLResponse)
+def web_users(request: Request, sim_id: int):
+    sim = get_sim_or_404(sim_id)
+    return templates.TemplateResponse(
+        "users.html",
+        _ctx(
+            request,
+            sim_id=sim_id,
+            status=_sim_status(sim_id),
+            forum={"name": sim.forum.name},
+            users=_users_view(sim),
+        ),
+    )
+
+
+@app.get("/sim/{sim_id}/ai-settings", response_class=HTMLResponse)
+def web_ai_settings(request: Request, sim_id: int):
+    sim = get_sim_or_404(sim_id)
+    cfg = sim.model_config
+    models = CLOUD_MODELS + get_installed_ollama_models()
+    return templates.TemplateResponse(
+        "ai_settings.html",
+        _ctx(
+            request,
+            sim_id=sim_id,
+            status=_sim_status(sim_id),
+            forum={"name": sim.forum.name},
+            models=models,
+            cfg={
+                "model": cfg.model,
+                "temperature": cfg.temperature,
+                "top_p": cfg.top_p,
+                "top_k": cfg.top_k,
+                "frequency_penalty": cfg.frequency_penalty,
+                "presence_penalty": cfg.presence_penalty,
+                "thinking": cfg.thinking,
+                "whitelist": ", ".join(cfg.whitelist),
+                "thread_creation_chance": sim.thread_creation_chance,
+            },
+        ),
+    )
+
+
+# ===========================================================================
+# HTMX fragment / action endpoints
+# ===========================================================================
+
+def _render(request: Request, name: str, **kw) -> HTMLResponse:
+    return templates.TemplateResponse(name, _ctx(request, **kw))
+
+
+# --- Home: simulation list, create, start/stop -----------------------------
+
+@app.get("/sim-rows", response_class=HTMLResponse)
+def htmx_sim_rows(request: Request):
+    return _render(request, "partials/sim_rows.html", sims=_sims_view())
+
+
+@app.post("/sim/create", response_class=HTMLResponse)
+def htmx_create_sim(
+    request: Request,
+    name: str = Form(""),
+    topic: str = Form(""),
+    created_date: str = Form(""),
+):
+    global next_sim_id
+    name = name.strip() or "Default Forum Name"
+    topic = topic.strip() or "Default Forum Topic"
+
+    summarize_forum = dspy.ChainOfThought(SummarizeForumPrompt)
+    topic_summary = summarize_forum(document=topic).summary
+
+    cd = datetime.now()
+    if created_date:
+        try:
+            cd = datetime.fromisoformat(created_date)
+        except ValueError:
+            pass
+
+    forum = Forum(name, topic, created_date=cd, topic_summary=topic_summary)
+    sim = Simulation(forum)
+
+    sim_id = next_sim_id
+    simulations[sim_id] = sim
+    next_sim_id += 1
+
+    logger.info(f"Created simulation {sim_id} with forum: {sim.forum}")
+    save_simulation(sim_id)
+
+    resp = Response(status_code=204)
+    resp.headers["HX-Redirect"] = f"/sim/{sim_id}"
+    return resp
+
+
+@app.post("/sim/{sim_id}/state", response_class=HTMLResponse)
+def htmx_toggle_state(request: Request, sim_id: int, running: str = Form("")):
+    get_sim_or_404(sim_id)
+    want_running = running.lower() in ("1", "true", "on", "start")
+    if want_running:
+        simulations_running.add(sim_id)
+        simulations[sim_id]._lm = build_lm(simulations[sim_id].model_config)
+    else:
+        simulations_running.discard(sim_id)
+    save_simulation(sim_id)
+    return _render(request, "partials/sim_rows.html", sims=_sims_view())
+
+
+# --- Per-sim header (current time + advance) -------------------------------
+
+@app.get("/sim/{sim_id}/status-bar", response_class=HTMLResponse)
+def htmx_status_bar(request: Request, sim_id: int):
+    get_sim_or_404(sim_id)
+    return _render(request, "partials/status_bar.html", status=_sim_status(sim_id))
+
+
+@app.post("/sim/{sim_id}/advance", response_class=HTMLResponse)
+def htmx_advance(request: Request, sim_id: int, hours: int = Form(1)):
+    get_sim_or_404_running(sim_id, require_running=True)
     simulations_advancing.add(sim_id)
     try:
-        for _ in range(body.hours):
+        sim = simulations[sim_id]
+        for _ in range(max(1, hours)):
             new_threads, new_posts = sim.advance_one_hour()
             if new_threads or new_posts:
                 save_simulation(sim_id)
-        return {"status": "ok", "advanced_hours": body.hours}
     finally:
         simulations_advancing.discard(sim_id)
+    return _render(request, "partials/status_bar.html", status=_sim_status(sim_id))
 
 
-@app.get("/simulations/{sim_id}")
-def get_simulation_summary(sim_id: int):
+# --- Threads list (polled) -------------------------------------------------
+
+@app.get("/sim/{sim_id}/threads-fragment", response_class=HTMLResponse)
+def htmx_threads(request: Request, sim_id: int):
     sim = get_sim_or_404(sim_id)
-    return {"id": sim_id, "users": len(sim.users), "threads": len(sim.threads), "posts": len(sim.posts)}
+    return _render(request, "partials/thread_rows.html", sim_id=sim_id, threads=_threads_view(sim))
 
 
-@app.get("/simulations/{sim_id}/forum")
-def get_sim_forum(sim_id: int):
-    sim = get_sim_or_404(sim_id)
-    f = sim.forum
-    return {
-        "name": f.name,
-        "topic": f.topic,
-        "topic_summary": f.topic_summary,
-        "created_date": f.created_date.isoformat(),
-        "documents": [dataclass_asdict(d) for d in f.documents],
-    }
+# --- Forum topic edit ------------------------------------------------------
 
-
-@app.get("/simulations/{sim_id}/status")
-def get_sim_status(sim_id: int):
-    sim = get_sim_or_404(sim_id)
-    is_generating = sim_id in simulations_generating
-    is_advancing = sim_id in simulations_advancing
-    current_time_iso = (sim.forum.created_date + timedelta(hours=sim._time)).isoformat()
-    running = sim_id in simulations_running
-    return {"generating": is_generating, "advancing": is_advancing, "current_time": current_time_iso, "running": running}
-
-
-@app.patch("/simulations/{sim_id}/forum")
-def update_sim_forum(sim_id: int, body: UpdateForumRequest):
+@app.post("/sim/{sim_id}/forum", response_class=HTMLResponse)
+def htmx_update_topic(request: Request, sim_id: int, topic: str = Form(...)):
     sim = get_sim_or_404_running(sim_id, require_running=True)
-    updated = False
-
-    if body.name is not None:
-        sim.forum.name = body.name
-        updated = True
-    if body.topic is not None:
-        sim.forum.topic = body.topic
-        updated = True
-    if body.created_date is not None:
-        sim.forum.created_date = datetime.fromisoformat(body.created_date)
-        updated = True
-
-    if updated:
-        logger.info(f"Updated forum for simulation {sim_id}: {sim.forum}")
-        save_simulation(sim_id)
-
-    f = sim.forum
-    return {
-        "name": f.name,
-        "topic": f.topic,
-        "topic_summary": f.topic_summary,
-        "created_date": f.created_date.isoformat(),
-        "documents": [dataclass_asdict(d) for d in f.documents],
-    }
-
-
-@app.get("/simulations/{sim_id}/users")
-def get_sim_users(sim_id: int):
-    sim = get_sim_or_404(sim_id)
-    return [dataclass_asdict(u) for u in sim.users]
-
-
-@app.post("/simulations/{sim_id}/users")
-def create_user_manual(sim_id: int, body: Dict[str, Any]):
-    """
-    Expected fields: username, signature, personality, forum_dedication (float), active_hours: [start, stop]
-    """
-    sim = get_sim_or_404_running(sim_id, require_running=True)
-    username = body.get("username", f"user{len(sim.users) + 1}")
-    signature = body.get("signature", "")
-    personality = body.get("personality", "")
-    forum_dedication = float(body.get("forum_dedication", 0.5))
-    activity = body.get("active_hours")
-
-    if isinstance(activity, list) and len(activity) >= 2:
-        try:
-            start = int(activity[0])
-            stop = int(activity[1])
-            active_hours = [start, stop]
-        except Exception:
-            active_hours = [0, 24]
-    else:
-        active_hours = [0, 24]
-
-    voice_profile = body.get("voice_profile", "")
-    user = User(
-        username=username, 
-        profile_picture=generate_profile_picture(), 
-        signature=signature, 
-        personality=personality, 
-        forum_dedication=forum_dedication,
-        active_hours=active_hours, 
-        voice_profile=voice_profile)
-    sim.users.append(user)
-    
-    logger.info(f"Manually created user {user.username} (id={user.id}) in sim {sim_id}")
+    sim.forum.topic = topic
     save_simulation(sim_id)
-
-    return dataclass_asdict(user)
-
-
-@app.patch("/simulations/{sim_id}/users/{user_id}")
-def update_user_manual(sim_id: int, user_id: str, body: Dict[str, Any]):
-    sim = get_sim_or_404_running(sim_id, require_running=True)
-    user = next((u for u in sim.users if u.id == user_id), None)
-
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if "username" in body:
-        user.username = body["username"]
-    if "signature" in body:
-        user.signature = body["signature"]
-    if "personality" in body:
-        user.personality = body["personality"]
-    if "forum_dedication" in body:
-        user.forum_dedication = float(body["forum_dedication"])
-    if "active_hours" in body:
-        ah = body["active_hours"]
-        if isinstance(ah, list) and len(ah) >= 2:
-            user.active_hours = [int(ah[0]), int(ah[1])]
-    if "voice_profile" in body:
-        user.voice_profile = str(body["voice_profile"])
-    
-    logger.info(f"Updated user {user.id} in sim {sim_id}")
-    save_simulation(sim_id)
-
-    return dataclass_asdict(user)
+    logger.info(f"Updated topic for simulation {sim_id}")
+    return _render(
+        request,
+        "partials/topic_block.html",
+        sim_id=sim_id,
+        status=_sim_status(sim_id),
+        forum={"topic": sim.forum.topic},
+    )
 
 
-@app.get("/simulations/{sim_id}/threads")
-def get_sim_threads(sim_id: int):
+# --- Stimuli ---------------------------------------------------------------
+
+@app.post("/sim/{sim_id}/stimuli", response_class=HTMLResponse)
+def htmx_create_stimulus(request: Request, sim_id: int, text: str = Form(...)):
     sim = get_sim_or_404(sim_id)
-    return [serialize_thread(t) for t in sim.threads]
-
-
-@app.get("/simulations/{sim_id}/posts")
-def get_sim_posts(sim_id: int):
-    sim = get_sim_or_404(sim_id)
-    return [serialize_post(p) for p in sim.posts]
-
-
-@app.get("/simulations/{sim_id}/posts/{post_id}")
-def get_sim_post(sim_id: int, post_id: str):
-    sim = get_sim_or_404(sim_id)
-    for p in sim.posts:
-        if p.id == post_id:
-            return serialize_post(p)
-    raise HTTPException(status_code=404, detail="Post not found")
-
-
-class CreateStimulusRequest(BaseModel):
-    text: str
-
-
-@app.get("/simulations/{sim_id}/stimuli")
-def get_sim_stimuli(sim_id: int):
-    sim = get_sim_or_404(sim_id)
-    return [serialize_stimulus(s) for s in sim.stimuli]
-
-
-@app.post("/simulations/{sim_id}/stimuli")
-def create_stimulus(sim_id: int, body: CreateStimulusRequest):
-    sim = get_sim_or_404(sim_id)
-    s = Stimulus(text=body.text.strip(), created_tick=sim._time)
+    s = Stimulus(text=text.strip(), created_tick=sim._time)
     sim.stimuli.append(s)
     save_simulation(sim_id)
-    return serialize_stimulus(s)
+    return _render(request, "partials/stimulus_list.html", sim_id=sim_id, stimuli=_stimuli_view(sim))
 
 
-class CreateDocumentRequest(BaseModel):
-    title: str
-    text: str
-    source: str = ""
-
-
-@app.get("/simulations/{sim_id}/documents")
-def get_sim_documents(sim_id: int):
+@app.delete("/sim/{sim_id}/stimuli/{stimulus_id}", response_class=HTMLResponse)
+def htmx_delete_stimulus(request: Request, sim_id: int, stimulus_id: str):
     sim = get_sim_or_404(sim_id)
-    return [serialize_document(d) for d in sim.documents.values()]
+    sim.stimuli = [s for s in sim.stimuli if s.id != stimulus_id]
+    save_simulation(sim_id)
+    return _render(request, "partials/stimulus_list.html", sim_id=sim_id, stimuli=_stimuli_view(sim))
 
 
-@app.post("/simulations/{sim_id}/documents")
-def create_document(sim_id: int, body: CreateDocumentRequest):
+# --- Documents -------------------------------------------------------------
+
+@app.post("/sim/{sim_id}/documents", response_class=HTMLResponse)
+def htmx_create_document(
+    request: Request,
+    sim_id: int,
+    title: str = Form(...),
+    text: str = Form(...),
+    source: str = Form(""),
+):
     sim = get_sim_or_404(sim_id)
     summarize = dspy.ChainOfThought(SummarizeForumPrompt)
-    summary = summarize(document=body.text).summary
-    doc = SimulationDocument(
-        title=body.title,
-        text=body.text,
-        source=body.source,
-        summary=summary,
-    )
+    summary = summarize(document=text).summary
+    doc = SimulationDocument(title=title.strip(), text=text.strip(), source=source.strip(), summary=summary)
     sim.documents[doc.id] = doc
-    sim.forum.documents.append(ForumDocumentReference(
-        id=doc.id,
-        title=doc.title,
-        summary=doc.summary,
-        source=doc.source,
-    ))
+    sim.forum.documents.append(
+        ForumDocumentReference(id=doc.id, title=doc.title, summary=doc.summary, source=doc.source)
+    )
     save_simulation(sim_id)
-    return serialize_document(doc)
+    return _render(request, "partials/document_list.html", sim_id=sim_id, documents=_documents_view(sim))
 
 
-@app.delete("/simulations/{sim_id}/documents/{doc_id}")
-def delete_document(sim_id: int, doc_id: str):
+@app.delete("/sim/{sim_id}/documents/{doc_id}", response_class=HTMLResponse)
+def htmx_delete_document(request: Request, sim_id: int, doc_id: str):
     sim = get_sim_or_404(sim_id)
-    if doc_id not in sim.documents:
-        raise HTTPException(status_code=404, detail="Document not found")
-    del sim.documents[doc_id]
+    if doc_id in sim.documents:
+        del sim.documents[doc_id]
     sim.forum.documents = [d for d in sim.forum.documents if d.id != doc_id]
     save_simulation(sim_id)
-    return {"status": "ok"}
+    return _render(request, "partials/document_list.html", sim_id=sim_id, documents=_documents_view(sim))
 
 
-@app.delete("/simulations/{sim_id}/stimuli/{stimulus_id}")
-def delete_stimulus(sim_id: int, stimulus_id: str):
-    sim = get_sim_or_404(sim_id)
-    before = len(sim.stimuli)
-    sim.stimuli = [s for s in sim.stimuli if s.id != stimulus_id]
-    if len(sim.stimuli) == before:
-        raise HTTPException(status_code=404, detail="Stimulus not found")
+# --- Users -----------------------------------------------------------------
+
+@app.post("/sim/{sim_id}/users", response_class=HTMLResponse)
+def htmx_create_user(
+    request: Request,
+    sim_id: int,
+    username: str = Form(""),
+    signature: str = Form(""),
+    personality: str = Form(""),
+    forum_dedication: float = Form(0.5),
+    active_start: int = Form(0),
+    active_end: int = Form(23),
+):
+    sim = get_sim_or_404_running(sim_id, require_running=True)
+    user = User(
+        username=username.strip() or f"user{len(sim.users) + 1}",
+        profile_picture=generate_profile_picture(),
+        signature=signature,
+        personality=personality,
+        forum_dedication=float(forum_dedication),
+        active_hours=[int(active_start), int(active_end)],
+        voice_profile="",
+    )
+    sim.users.append(user)
+    logger.info(f"Manually created user {user.username} (id={user.id}) in sim {sim_id}")
     save_simulation(sim_id)
-    return {"status": "ok"}
+    return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
+
+
+@app.post("/sim/{sim_id}/user-update", response_class=HTMLResponse)
+def htmx_update_user(
+    request: Request,
+    sim_id: int,
+    user_id: str = Form(...),
+    username: str = Form(""),
+    signature: str = Form(""),
+    personality: str = Form(""),
+    forum_dedication: float = Form(0.5),
+    active_start: int = Form(0),
+    active_end: int = Form(23),
+):
+    sim = get_sim_or_404_running(sim_id, require_running=True)
+    user = next((u for u in sim.users if u.id == user_id), None)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.username = username.strip() or user.username
+    user.signature = signature
+    user.personality = personality
+    user.forum_dedication = float(forum_dedication)
+    user.active_hours = [int(active_start), int(active_end)]
+    logger.info(f"Updated user {user.id} in sim {sim_id}")
+    save_simulation(sim_id)
+    return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
+
+
+@app.post("/sim/{sim_id}/generate-users", response_class=HTMLResponse)
+def htmx_generate_users(request: Request, sim_id: int, count: int = Form(1)):
+    sim = get_sim_or_404_running(sim_id, require_running=True)
+    simulations_generating.add(sim_id)
+    try:
+        sim.generate_users(max(1, count))
+        save_simulation(sim_id)
+    finally:
+        simulations_generating.discard(sim_id)
+    return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
+
+
+# --- AI settings -----------------------------------------------------------
+
+@app.post("/sim/{sim_id}/ai-settings", response_class=HTMLResponse)
+def htmx_save_ai_settings(
+    request: Request,
+    sim_id: int,
+    model: str = Form(""),
+    temperature: float = Form(0.7),
+    top_p: float = Form(0.9),
+    top_k: int = Form(40),
+    frequency_penalty: float = Form(0.0),
+    presence_penalty: float = Form(0.0),
+    thinking: str = Form("medium"),
+    whitelist: str = Form(""),
+    thread_creation_chance: float = Form(0.25),
+):
+    sim = get_sim_or_404(sim_id)
+    cfg = sim.model_config
+    if model:
+        cfg.model = model
+    cfg.temperature = float(temperature)
+    cfg.top_p = float(top_p)
+    cfg.top_k = int(top_k)
+    cfg.frequency_penalty = float(frequency_penalty)
+    cfg.presence_penalty = float(presence_penalty)
+    if thinking in ("low", "medium", "high"):
+        cfg.thinking = thinking
+    cfg.whitelist = [x.strip() for x in whitelist.split(",") if x.strip()]
+    sim.thread_creation_chance = float(thread_creation_chance)
+
+    sim._lm = build_lm(cfg)
+    save_simulation(sim_id)
+
+    resp = Response(status_code=204)
+    resp.headers["HX-Redirect"] = f"/sim/{sim_id}"
+    return resp

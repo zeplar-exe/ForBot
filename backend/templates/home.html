@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}ForBot — Simulations{% endblock %}
+{% block content %}
+  <h1>Simulations</h1>
+  <div class="controls">
+    <button class="primary" onclick="toggleModal('create-modal', true)">Create Simulation</button>
+    <button hx-get="/sim-rows" hx-target="#sim-list" hx-swap="outerHTML">Refresh</button>
+  </div>
+
+  {% include 'partials/sim_rows.html' %}
+
+  <div id="create-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Create Simulation</h3>
+      <form hx-post="/sim/create">
+        <label>
+          <span class="lbl">Forum name</span>
+          <input name="name" placeholder="e.g. World of Warcraft Forum">
+        </label>
+        <label>
+          <span class="lbl">Topic</span>
+          <textarea name="topic" rows="4" placeholder="Describe the forum topic in more detail"></textarea>
+        </label>
+        <label>
+          <span class="lbl">Created date &amp; time (optional)</span>
+          <input type="datetime-local" name="created_date">
+        </label>
+        <div class="modal-actions">
+          <button type="button" onclick="toggleModal('create-modal', false)">Cancel</button>
+          <button class="primary" type="submit">
+            Create &amp; Open <span class="spinner indicator"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

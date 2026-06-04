@@ -1,0 +1,25 @@
+<div id="sim-list" class="card">
+  {% if sims %}
+    {% for s in sims %}
+    <div class="row">
+      <div class="grow">
+        <div class="title"><a href="/sim/{{ s.id }}">#{{ s.id }} — {{ s.name }}</a></div>
+        <div class="muted small">{{ s.topic }}</div>
+        <div class="muted small">created {{ s.created_display }}</div>
+      </div>
+      <div class="stats">
+        <div><span class="n">{{ s.users }}</span>users</div>
+        <div><span class="n">{{ s.threads }}</span>threads</div>
+        <div><span class="n">{{ s.posts }}</span>posts</div>
+      </div>
+      <form hx-post="/sim/{{ s.id }}/state" hx-target="#sim-list" hx-swap="outerHTML" style="margin:0;">
+        <input type="hidden" name="running" value="{{ '' if s.running else 'start' }}">
+        <button type="submit">{{ 'Stop' if s.running else 'Start' }}</button>
+      </form>
+      <span class="badge {{ '' if s.running else 'off' }}">{{ 'running' if s.running else 'stopped' }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">No simulations yet.</div>
+  {% endif %}
+</div>

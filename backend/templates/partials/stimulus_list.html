@@ -1,0 +1,14 @@
+<div id="stimulus-list" class="scroll-list">
+  {% if stimuli %}
+    {% for s in stimuli %}
+    <div class="row" style="padding:8px 12px;">
+      <span class="grow small" style="white-space:pre-wrap; word-break:break-word;">{{ s.text }}</span>
+      <span class="muted small" style="white-space:nowrap;">tick {{ s.created_tick }}</span>
+      <button class="danger" hx-delete="/sim/{{ sim_id }}/stimuli/{{ s.id }}"
+              hx-target="#stimulus-list" hx-swap="outerHTML">✕</button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="list-pad muted small">No stimuli yet.</div>
+  {% endif %}
+</div>

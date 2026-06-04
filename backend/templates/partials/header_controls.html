@@ -1,0 +1,10 @@
+{% include 'partials/status_bar.html' %}
+<form hx-post="/sim/{{ status.sim_id }}/advance"
+      hx-target="#sim-status" hx-swap="outerHTML"
+      style="display:flex; gap:6px; align-items:center; margin:0;">
+  <input type="number" name="hours" min="1" value="1" style="width:64px;"
+         {% if not status.running %}disabled{% endif %}>
+  <button class="primary" type="submit" {% if not status.running %}disabled{% endif %}>
+    Advance <span class="spinner indicator"></span>
+  </button>
+</form>

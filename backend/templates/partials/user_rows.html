@@ -1,0 +1,25 @@
+<div id="user-list" class="card">
+  {% if users %}
+    {% for u in users %}
+    <div class="row" style="align-items:flex-start;">
+      {% if u.avatar %}<img class="avatar" src="{{ u.avatar }}" alt="{{ u.username }}">{% endif %}
+      <div class="grow">
+        <strong>{{ u.username }}</strong> <span class="muted small">({{ u.forum_dedication }})</span>
+        {% if u.signature %}<div class="small muted">{{ u.signature }}</div>{% endif %}
+        <div class="muted small">active {{ u.active_start }}:00–{{ u.active_end }}:00</div>
+      </div>
+      <button {% if not status.running %}disabled{% endif %}
+              onclick="openEditUser(this)"
+              data-id="{{ u.id }}"
+              data-username="{{ u.username }}"
+              data-signature="{{ u.signature }}"
+              data-personality="{{ u.personality }}"
+              data-dedication="{{ u.forum_dedication }}"
+              data-start="{{ u.active_start }}"
+              data-end="{{ u.active_end }}">Edit</button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">No users yet.</div>
+  {% endif %}
+</div>

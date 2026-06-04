@@ -1,0 +1,8 @@
+<span id="sim-status" class="small muted"
+      hx-get="/sim/{{ status.sim_id }}/status-bar"
+      hx-trigger="every 4s"
+      hx-swap="outerHTML">
+  {{ status.current_time_display }}
+  {% if status.advancing %}<span class="spinner"></span> advancing…{% endif %}
+  {% if status.generating %}<span class="spinner"></span> generating…{% endif %}
+</span>

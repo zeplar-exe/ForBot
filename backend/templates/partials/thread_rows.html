@@ -1,0 +1,18 @@
+<div id="thread-list" class="card"
+     hx-get="/sim/{{ sim_id }}/threads-fragment"
+     hx-trigger="every 4s"
+     hx-swap="outerHTML">
+  {% if threads %}
+    {% for t in threads %}
+    <div class="row">
+      <div class="grow">
+        <div class="title"><a href="/sim/{{ sim_id }}/thread/{{ t.id }}">{{ t.title }}</a></div>
+        <div class="muted small">by {{ t.author }} &middot; {{ t.created_display }}</div>
+      </div>
+      <div class="stats"><div><span class="n">{{ t.post_count }}</span>posts</div></div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">No threads yet.</div>
+  {% endif %}
+</div>

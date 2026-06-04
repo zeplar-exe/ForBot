@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ forum.name }} — ForBot{% endblock %}
+{% block crumbs %}/ <a href="/sim/{{ sim_id }}">{{ forum.name }}</a>{% endblock %}
+{% block header_actions %}{% include 'partials/header_controls.html' %}{% endblock %}
+{% block content %}
+  <h1>{{ forum.name }}</h1>
+  <div class="muted small" style="margin-bottom:12px;">created {{ forum.created_display }}</div>
+
+  {% include 'partials/topic_block.html' %}
+
+  <div class="nav-btns">
+    <a class="btn" href="/sim/{{ sim_id }}/ai-settings">AI Settings</a>
+    <a class="btn" href="/sim/{{ sim_id }}/users">Users</a>
+    <button onclick="toggleModal('documents-modal', true)">Documents</button>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:10px;">
+    <div class="section-title" style="margin-bottom:0;">Threads</div>
+    <button title="Manage stimuli" style="padding:2px 10px; font-size:18px; line-height:1;"
+            onclick="toggleModal('stimuli-modal', true)">+</button>
+  </div>
+
+  {% include 'partials/thread_rows.html' %}
+
+  <!-- Topic edit modal -->
+  <div id="topic-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Edit Topic</h3>
+      <form hx-post="/sim/{{ sim_id }}/forum" hx-target="#topic-block" hx-swap="outerHTML"
+            data-close-on-success="topic-modal">
+        <textarea id="topic-input" name="topic" rows="6">{{ forum.topic }}</textarea>
+        <div class="modal-actions">
+          <button type="button" onclick="toggleModal('topic-modal', false)">Cancel</button>
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stimuli modal -->
+  <div id="stimuli-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Stimuli</h3>
+      <p class="muted small" style="margin-top:0;">Events injected into thread creation as raw material for users to react to.</p>
+      {% include 'partials/stimulus_list.html' %}
+      <form hx-post="/sim/{{ sim_id }}/stimuli" hx-target="#stimulus-list" hx-swap="outerHTML"
+            hx-on::after-request="if(event.detail.successful) this.reset()">
+        <textarea name="text" rows="3" placeholder="Describe an event or piece of news…"></textarea>
+        <div class="modal-actions">
+          <button type="button" onclick="toggleModal('stimuli-modal', false)">Close</button>
+          <button class="primary" type="submit">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Documents modal -->
+  <div id="documents-modal" class="modal-backdrop">
+    <div class="modal">
+      <h3>Documents</h3>
+      <p class="muted small" style="margin-top:0;">Documents injected as context into thread and post generation.</p>
+      {% include 'partials/document_list.html' %}
+      <form hx-post="/sim/{{ sim_id }}/documents" hx-target="#document-list" hx-swap="outerHTML"
+            hx-on::after-request="if(event.detail.successful) this.reset()">
+        <label>
+          <span class="lbl">Title</span>
+          <input name="title" placeholder="Document title">
+        </label>
+        <label>
+          <span class="lbl">Source (optional)</span>
+          <input name="source" placeholder="URL or reference">
+        </label>
+        <label>
+          <span class="lbl">Text</span>
+          <textarea name="text" rows="5" placeholder="Paste the full document text…"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button type="button" onclick="toggleModal('documents-modal', false)">Close</button>
+          <button class="primary" type="submit">
+            Add <span class="spinner indicator"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
