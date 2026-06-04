@@ -1,6 +1,8 @@
 from collections import defaultdict
 from contextlib import nullcontext
 
+import mlflow
+
 from data import *
 import logging
 import random
@@ -310,6 +312,11 @@ class Simulation:
 
         for i, user in enumerate(self.users):
             if user.active_hours[0] <= self._time % 24 < user.active_hours[1]:
+                mlflow.update_current_trace(
+                    metadata={
+                        "mlflow.trace.user": f"{user.username}",
+                    }
+                )
                 added_threads, added_posts = self.simulate_user_activity(user)
                 hour_threads.extend(added_threads)
                 hour_posts.extend(added_posts)
