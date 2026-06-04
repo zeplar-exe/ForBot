@@ -2,17 +2,18 @@ from fastapi import FastAPI, HTTPException
 import logging
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional, cast
+from datetime import datetime, timedelta
 from generate_det import generate_profile_picture
 from simulation import Simulation
 from data import *
 from serialization import (
     sim_to_dict,
-    parse_date,
-    date_to_iso,
     serialize_user_full,
     serialize_model_config,
     serialize_thread,
     serialize_post,
+    serialize_stimulus,
+    serialize_document,
     SimulationEncoder,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,14 +30,16 @@ load_dotenv()
 
 STORAGE_DIR = Path(__file__).parent / "simulations"
 STORAGE_DIR.mkdir(exist_ok=True)
+BACKUP_DIR = Path(__file__).parent / "backups"
+BACKUP_DIR.mkdir(exist_ok=True)
 
 LOG_FILE = "forbot.log"
-OLLAMA_API_BASE = "http://localhost:11434"
+OLLAMA_API_BASE = "http://157.157.221.177:10902"
 
 app = FastAPI(title="ForBot Simulation Server")
 
-lm = dspy.LM("openai/gpt-4o-mini", api_key=os.getenv("OPENAI_API_KEY"), temperature=0.7, top_p=0.9)
-dspy.configure(lm=lm)
+lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7)
+dspy.configure(lm=lm, adapter=dspy.JSONAdapter())
 dspy.enable_logging()
 
 
@@ -111,13 +114,13 @@ CLOUD_MODELS = [
 ]
 
 
-def reconfigure_dspy_with_config(cfg: AIConfig):
-    global lm
-    kwargs: dict = {
-        "temperature": cfg.temperature,
-        "top_p": cfg.top_p,
-    }
-    if cfg.top_k > 0:
+def build_lm(cfg: AIConfig) -> dspy.LM:
+    is_anthropic = cfg.model.startswith("anthropic/")
+
+    kwargs: dict = {"temperature": cfg.temperature}
+    if not is_anthropic:
+        kwargs["top_p"] = cfg.top_p
+    if is_anthropic and cfg.top_k > 0:
         kwargs["top_k"] = cfg.top_k
     if cfg.frequency_penalty != 0.0:
         kwargs["frequency_penalty"] = cfg.frequency_penalty
@@ -125,14 +128,14 @@ def reconfigure_dspy_with_config(cfg: AIConfig):
         kwargs["presence_penalty"] = cfg.presence_penalty
 
     if cfg.model.startswith("ollama"):
-        lm = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="", **kwargs)
-    elif cfg.model.startswith("anthropic/"):
-        lm = dspy.LM(cfg.model, api_key=os.getenv("ANTHROPIC_API_KEY", ""), **kwargs)
+        built = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="", **kwargs)
+    elif is_anthropic:
+        built = dspy.LM(cfg.model, api_key=os.getenv("CLAUDE_API_KEY", ""), **kwargs)
     else:
-        lm = dspy.LM(cfg.model, **kwargs)
+        built = dspy.LM(cfg.model, **kwargs)
 
-    dspy.configure(lm=lm)
-    logger.info(f"Reconfigured dspy: {cfg.model}")
+    logger.info(f"Built LM: {cfg.model}")
+    return built
 
 
 class AISettingsRequest(BaseModel):
@@ -186,7 +189,7 @@ def api_update_ai_settings(sim_id: int, body: AISettingsRequest):
     if body.thread_creation_chance is not None:
         sim.thread_creation_chance = body.thread_creation_chance
 
-    reconfigure_dspy_with_config(cfg)
+    sim._lm = build_lm(cfg)
     save_simulation(sim_id)
 
     result = dataclass_asdict(cfg)
@@ -201,6 +204,13 @@ def save_simulation(sim_id: int):
         return
     try:
         fp = sim_filepath(sim_id)
+        if fp.exists():
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_fp = BACKUP_DIR / f"sim_{sim_id}_{ts}.json"
+            backup_fp.write_bytes(fp.read_bytes())
+            existing = sorted(BACKUP_DIR.glob(f"sim_{sim_id}_*.json"))
+            for old in existing[:-15]:
+                old.unlink()
         with fp.open("w", encoding="utf-8") as f:
             json.dump(sim_to_dict(sim), f, indent=2, cls=SimulationEncoder)
         logger.info(f"Saved simulation {sim_id} to {fp}")
@@ -210,14 +220,23 @@ def save_simulation(sim_id: int):
 
 def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
     forum_data = data.get("forum", {})
-    forum_created = parse_date(forum_data.get("created_date"))
-    
     topic_summary = forum_data.get("topic_summary")
 
-    if forum_created is not None:
-        forum = Forum(forum_data.get("name", ""), forum_data.get("topic", ""), created_date=forum_created, topic_summary=topic_summary)
+    raw_created = forum_data.get("created_date")
+    if isinstance(raw_created, dict):
+        # old format: {"date": "2025-01-01T00:00:00", "hour": N}
+        forum_created = datetime.fromisoformat(str(raw_created["date"]))
+    elif raw_created:
+        forum_created = datetime.fromisoformat(str(raw_created))
     else:
-        forum = Forum(forum_data.get("name", ""), forum_data.get("topic", ""), topic_summary=topic_summary)
+        forum_created = datetime.now()
+
+    forum = Forum(
+        name=forum_data.get("name", ""),
+        topic=forum_data.get("topic", ""),
+        created_date=forum_created,
+        topic_summary=topic_summary or "Empty Summary",
+    )
 
     sim = Simulation(forum)
 
@@ -276,13 +295,15 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
             continue
 
         author = users_by_id[str(auth_id)]
-        thread_created = parse_date(t.get("created_date"))
+        thread = Thread(
+            title=t.get("title", ""),
+            author=author,
+            category=cast(ThreadCategory, None),
+            created_tick=int(t.get("created_tick", 0)),
+            summary=t.get("summary", None),
+            id=str(t.get("id")),
+        )
 
-        if thread_created is not None:
-            thread = Thread(title=t.get("title", ""), author=author, category=cast(ThreadCategory, None), created_date=thread_created, id=str(t.get("id")))
-        else:
-            thread = Thread(title=t.get("title", ""), author=author, category=cast(ThreadCategory, None), id=str(t.get("id")))
-        
         sim.threads.append(thread)
         threads_by_id[thread.id] = thread
 
@@ -300,24 +321,45 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
 
         thread = threads_by_id[str(tid)]
         author = users_by_id[str(aid)]
-        post_created = parse_date(p.get("created_date"))
+        post = Post(
+            thread=thread,
+            author=author,
+            content=p.get("content", ""),
+            reply_to=p.get("reply_to", []),
+            created_tick=int(p.get("created_tick", 0)),
+            id=str(p.get("id")),
+        )
 
-        if post_created is not None:
-            post = Post(thread=thread, author=author, content=p.get("content", ""), reply_to=[], created_date=post_created, id=str(p.get("id")))
-        else:
-            post = Post(thread=thread, author=author, content=p.get("content", ""), reply_to=[], id=str(p.get("id")))
-        
         sim.posts.append(post)
         posts_by_id[post.id] = post
 
-    for p in data.get("posts", []):
-        pid = str(p.get("id"))
-        post = posts_by_id.get(pid)
+    for s in data.get("stimuli", []):
+        stimulus = Stimulus(
+            text=s.get("text", ""),
+            created_tick=int(s.get("created_tick", 0)),
+            id=str(s.get("id")),
+        )
+        sim.stimuli.append(stimulus)
 
-        if post is None:
-            continue
-        
-        post.reply_to = p.get("reply_to", [])
+    for d in data.get("documents", []):
+        doc = SimulationDocument(
+            title=d.get("title", ""),
+            text=d.get("text", ""),
+            source=d.get("source", ""),
+            summary=d.get("summary", ""),
+            id=str(d.get("id")),
+        )
+        sim.documents[doc.id] = doc
+        # Rebuild forum document references from the document store
+        sim.forum.documents = [
+            ForumDocumentReference(
+                id=doc.id,
+                title=doc.title,
+                summary=doc.summary,
+                source=doc.source,
+            )
+            for doc in sim.documents.values()
+        ]
 
     return sim
 
@@ -382,6 +424,7 @@ def api_set_simulation_state(sim_id: int, body: StateRequest):
     sim = get_sim_or_404(sim_id)
     if body.running:
         simulations_running.add(sim_id)
+        sim._lm = build_lm(sim.model_config)
     else:
         simulations_running.discard(sim_id)
     save_simulation(sim_id)
@@ -399,12 +442,11 @@ def create_simulation(body: CreateSimulationRequest):
     topic_summary = summarize_forum(
         document=topic
     ).summary
-    
-    cd = Date(datetime.now(), 0)
-    
+
+    cd: datetime = datetime.now()
     if body.created_date:
-        cd = parse_date(body.created_date) or cd
-        
+        cd = datetime.fromisoformat(body.created_date)
+
     forum = Forum(name, topic, created_date=cd, topic_summary=topic_summary)
 
     sim = Simulation(forum)
@@ -465,8 +507,10 @@ def api_advance(sim_id: int, body: AdvanceRequest):
     sim = get_sim_or_404_running(sim_id, require_running=True)
     simulations_advancing.add(sim_id)
     try:
-        sim.advance_time(body.hours)
-        save_simulation(sim_id)
+        for _ in range(body.hours):
+            new_threads, new_posts = sim.advance_one_hour()
+            if new_threads or new_posts:
+                save_simulation(sim_id)
         return {"status": "ok", "advanced_hours": body.hours}
     finally:
         simulations_advancing.discard(sim_id)
@@ -486,7 +530,7 @@ def get_sim_forum(sim_id: int):
         "name": f.name,
         "topic": f.topic,
         "topic_summary": f.topic_summary,
-        "created_date": date_to_iso(f.created_date),
+        "created_date": f.created_date.isoformat(),
         "documents": [dataclass_asdict(d) for d in f.documents],
     }
 
@@ -496,9 +540,7 @@ def get_sim_status(sim_id: int):
     sim = get_sim_or_404(sim_id)
     is_generating = sim_id in simulations_generating
     is_advancing = sim_id in simulations_advancing
-    ct = sim.forum.created_date.add_hours(sim._time)
-    current_time_iso = (ct.date + timedelta(hours=ct.hour)).isoformat()
-
+    current_time_iso = (sim.forum.created_date + timedelta(hours=sim._time)).isoformat()
     running = sim_id in simulations_running
     return {"generating": is_generating, "advancing": is_advancing, "current_time": current_time_iso, "running": running}
 
@@ -507,7 +549,7 @@ def get_sim_status(sim_id: int):
 def update_sim_forum(sim_id: int, body: UpdateForumRequest):
     sim = get_sim_or_404_running(sim_id, require_running=True)
     updated = False
-    
+
     if body.name is not None:
         sim.forum.name = body.name
         updated = True
@@ -515,16 +557,21 @@ def update_sim_forum(sim_id: int, body: UpdateForumRequest):
         sim.forum.topic = body.topic
         updated = True
     if body.created_date is not None:
-        cd = parse_date(body.created_date)
-        if cd is not None:
-            sim.forum.created_date = cd
-            updated = True
+        sim.forum.created_date = datetime.fromisoformat(body.created_date)
+        updated = True
 
     if updated:
         logger.info(f"Updated forum for simulation {sim_id}: {sim.forum}")
         save_simulation(sim_id)
 
-    return dataclass_asdict(sim.forum)
+    f = sim.forum
+    return {
+        "name": f.name,
+        "topic": f.topic,
+        "topic_summary": f.topic_summary,
+        "created_date": f.created_date.isoformat(),
+        "documents": [dataclass_asdict(d) for d in f.documents],
+    }
 
 
 @app.get("/simulations/{sim_id}/users")
@@ -619,3 +666,78 @@ def get_sim_post(sim_id: int, post_id: str):
         if p.id == post_id:
             return serialize_post(p)
     raise HTTPException(status_code=404, detail="Post not found")
+
+
+class CreateStimulusRequest(BaseModel):
+    text: str
+
+
+@app.get("/simulations/{sim_id}/stimuli")
+def get_sim_stimuli(sim_id: int):
+    sim = get_sim_or_404(sim_id)
+    return [serialize_stimulus(s) for s in sim.stimuli]
+
+
+@app.post("/simulations/{sim_id}/stimuli")
+def create_stimulus(sim_id: int, body: CreateStimulusRequest):
+    sim = get_sim_or_404(sim_id)
+    s = Stimulus(text=body.text.strip(), created_tick=sim._time)
+    sim.stimuli.append(s)
+    save_simulation(sim_id)
+    return serialize_stimulus(s)
+
+
+class CreateDocumentRequest(BaseModel):
+    title: str
+    text: str
+    source: str = ""
+
+
+@app.get("/simulations/{sim_id}/documents")
+def get_sim_documents(sim_id: int):
+    sim = get_sim_or_404(sim_id)
+    return [serialize_document(d) for d in sim.documents.values()]
+
+
+@app.post("/simulations/{sim_id}/documents")
+def create_document(sim_id: int, body: CreateDocumentRequest):
+    sim = get_sim_or_404(sim_id)
+    summarize = dspy.ChainOfThought(SummarizeForumPrompt)
+    summary = summarize(document=body.text).summary
+    doc = SimulationDocument(
+        title=body.title,
+        text=body.text,
+        source=body.source,
+        summary=summary,
+    )
+    sim.documents[doc.id] = doc
+    sim.forum.documents.append(ForumDocumentReference(
+        id=doc.id,
+        title=doc.title,
+        summary=doc.summary,
+        source=doc.source,
+    ))
+    save_simulation(sim_id)
+    return serialize_document(doc)
+
+
+@app.delete("/simulations/{sim_id}/documents/{doc_id}")
+def delete_document(sim_id: int, doc_id: str):
+    sim = get_sim_or_404(sim_id)
+    if doc_id not in sim.documents:
+        raise HTTPException(status_code=404, detail="Document not found")
+    del sim.documents[doc_id]
+    sim.forum.documents = [d for d in sim.forum.documents if d.id != doc_id]
+    save_simulation(sim_id)
+    return {"status": "ok"}
+
+
+@app.delete("/simulations/{sim_id}/stimuli/{stimulus_id}")
+def delete_stimulus(sim_id: int, stimulus_id: str):
+    sim = get_sim_or_404(sim_id)
+    before = len(sim.stimuli)
+    sim.stimuli = [s for s in sim.stimuli if s.id != stimulus_id]
+    if len(sim.stimuli) == before:
+        raise HTTPException(status_code=404, detail="Stimulus not found")
+    save_simulation(sim_id)
+    return {"status": "ok"}

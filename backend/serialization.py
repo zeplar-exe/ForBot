@@ -12,16 +12,6 @@ class SimulationEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-def parse_date(iso_str) -> Optional[Date]:
-    if iso_str is None:
-        return None
-    if isinstance(iso_str, dict):
-        dt = datetime.fromisoformat(str(iso_str["date"]))
-        return Date(date=dt, hour=int(iso_str.get("hour", dt.hour)))
-    dt = datetime.fromisoformat(str(iso_str))
-    return Date(date=dt, hour=dt.hour)
-
-
 def serialize_user_full(u: User) -> Dict[str, Any]:
     return {
         "id": u.id,
@@ -35,17 +25,14 @@ def serialize_user_full(u: User) -> Dict[str, Any]:
     }
 
 
-def date_to_iso(d) -> str:
-    return d.date.isoformat()
-
-
 def serialize_thread(t) -> Dict[str, Any]:
     return {
         "id": t.id,
         "title": t.title,
         "author_id": t.author.id,
         "category": dataclass_asdict(t.category) if t.category else None,
-        "created_date": date_to_iso(t.created_date),
+        "created_tick": t.created_tick,
+        "summary": t.summary,
     }
 
 
@@ -56,19 +43,51 @@ def serialize_post(p) -> Dict[str, Any]:
         "author_id": p.author.id,
         "content": p.content,
         "reply_to": p.reply_to,
-        "created_date": date_to_iso(p.created_date),
+        "created_tick": p.created_tick,
     }
 
 
+def serialize_document(d) -> Dict[str, Any]:
+    return {
+        "id": d.id,
+        "title": d.title,
+        "text": d.text,
+        "source": d.source,
+        "summary": d.summary,
+    }
+
+
+def serialize_stimulus(s) -> Dict[str, Any]:
+    return {
+        "id": s.id,
+        "text": s.text,
+        "created_tick": s.created_tick,
+    }
+
+
+def serialize_model_config(sim) -> Optional[Dict[str, Any]]:
+    if sim.model_config is None:
+        return None
+    return dataclass_asdict(sim.model_config)
+
+
 def sim_to_dict(sim) -> Dict[str, Any]:
-    data = {
-        "forum": dataclass_asdict(sim.forum),
+    data: Dict[str, Any] = {
+        "forum": {
+            "name": sim.forum.name,
+            "topic": sim.forum.topic,
+            "topic_summary": sim.forum.topic_summary,
+            "created_date": sim.forum.created_date.isoformat(),
+            "documents": [dataclass_asdict(d) for d in sim.forum.documents],
+        },
         "model_config": None,
         "time": sim._time,
         "thread_creation_chance": sim.thread_creation_chance,
         "users": [],
         "threads": [],
         "posts": [],
+        "stimuli": [],
+        "documents": [],
     }
 
     for u in sim.users:
@@ -80,13 +99,13 @@ def sim_to_dict(sim) -> Dict[str, Any]:
     for p in sim.posts:
         data["posts"].append(serialize_post(p))
 
+    for s in sim.stimuli:
+        data["stimuli"].append(serialize_stimulus(s))
+
+    for d in sim.documents.values():
+        data["documents"].append(serialize_document(d))
+
     if sim.model_config is not None:
         data["model_config"] = dataclass_asdict(sim.model_config)
 
     return data
-
-
-def serialize_model_config(sim) -> Optional[Dict[str, Any]]:
-    if sim.model_config is None:
-        return None
-    return dataclass_asdict(sim.model_config)

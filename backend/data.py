@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 import uuid
 
@@ -7,11 +7,13 @@ import uuid
 type UserId = str
 type ThreadId = str
 type PostId = str
+type StimulusId = str
+type DocumentId = str
 
 
 @dataclass
 class AIConfig:
-    model: str = "openai/gpt-4o-mini"
+    model: str = "ollama/qwen2.5-abliterated-q4"
     temperature: float = 0.7
     top_p: float = 0.9
     top_k: int = 40
@@ -22,27 +24,27 @@ class AIConfig:
 
 
 @dataclass
-class Date:
-    date: datetime
-    hour: int
-
-    def add_hours(self, hours: int) -> 'Date':
-        new_datetime = self.date + timedelta(hours=hours)
-        return Date(date=new_datetime, hour=new_datetime.hour)
+class SimulationDocument:
+    title: str
+    text: str
+    source: str = ""
+    summary: str = ""
+    id: DocumentId = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
 class ForumDocumentReference:
+    id: DocumentId
     title: str
     summary: str
-    source: str
+    source: str = ""
 
 
 @dataclass
 class Forum:
     name: str
     topic: str
-    created_date: Date = field(default_factory=lambda: Date(datetime.now(), 0))
+    created_date: datetime = field(default_factory=datetime.now)
     topic_summary: str = "Empty Summary"
     documents: List[ForumDocumentReference] = field(default_factory=list)
 
@@ -88,7 +90,8 @@ class Thread:
     title: str
     author: User
     category: Optional[ThreadCategory]
-    created_date: Date = field(default_factory=lambda: Date(datetime.now(), 0))
+    created_tick: int = 0
+    summary: Optional[str] = None
     id: ThreadId = field(default_factory=lambda: str(uuid.uuid4()))
 
 
@@ -98,5 +101,12 @@ class Post:
     author: User
     content: str
     reply_to: List[str] = field(default_factory=list)
-    created_date: Date = field(default_factory=lambda: Date(datetime.now(), 0))
+    created_tick: int = 0
     id: PostId = field(default_factory=lambda: str(uuid.uuid4()))
+
+
+@dataclass
+class Stimulus:
+    text: str
+    created_tick: int = 0
+    id: StimulusId = field(default_factory=lambda: str(uuid.uuid4()))

@@ -150,9 +150,9 @@ export async function updateUser(simId: number, userId: string, payload: any){
   return res.json()
 }
 
-export async function generateSingleUser(simId: number){
-  const res = await fetch(`${BASE}/simulations/${simId}/generate_users`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ num_users: 1 }) })
-  if(!res.ok) throw new Error('Failed to generate user')
+export async function generateUsers(simId: number, count: number = 1){
+  const res = await fetch(`${BASE}/simulations/${simId}/generate_users`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ num_users: count }) })
+  if(!res.ok) throw new Error('Failed to generate users')
   return res.json()
 }
 
@@ -160,5 +160,53 @@ export async function fetchSimStatus(simId: number) {
   const res = await fetch(`${BASE}/simulations/${simId}/status`)
   if(!res.ok) throw new Error('Failed to fetch simulation status')
   return res.json() as Promise<{ generating: boolean; advancing: boolean; current_time?: string; running: boolean }>
+}
+
+export type Stimulus = { id: string; text: string; created_tick: number }
+
+export async function fetchStimuli(simId: number): Promise<Stimulus[]> {
+  const res = await fetch(`${BASE}/simulations/${simId}/stimuli`)
+  if (!res.ok) throw new Error('Failed to fetch stimuli')
+  return res.json()
+}
+
+export async function createStimulus(simId: number, text: string): Promise<Stimulus> {
+  const res = await fetch(`${BASE}/simulations/${simId}/stimuli`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  if (!res.ok) throw new Error('Failed to create stimulus')
+  return res.json()
+}
+
+export async function deleteStimulus(simId: number, stimulusId: string): Promise<void> {
+  const res = await fetch(`${BASE}/simulations/${simId}/stimuli/${stimulusId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to delete stimulus')
+}
+
+export type SimulationDocument = { id: string; title: string; text: string; source: string; summary: string }
+
+export async function fetchDocuments(simId: number): Promise<SimulationDocument[]> {
+  const res = await fetch(`${BASE}/simulations/${simId}/documents`)
+  if (!res.ok) throw new Error('Failed to fetch documents')
+  return res.json()
+}
+
+export async function createDocument(simId: number, payload: { title: string; text: string; source?: string }): Promise<SimulationDocument> {
+  const res = await fetch(`${BASE}/simulations/${simId}/documents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error('Failed to create document')
+  return res.json()
+}
+
+export async function deleteDocument(simId: number, docId: string): Promise<void> {
+  const res = await fetch(`${BASE}/simulations/${simId}/documents/${docId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete document')
 }
 

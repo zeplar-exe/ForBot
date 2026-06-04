@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { fetchUsers, createUser, updateUser, generateSingleUser, fetchSimStatus } from './api'
+import { fetchUsers, createUser, updateUser, generateUsers, fetchSimStatus } from './api'
 
 export default function UsersView() {
     const params = useParams()
@@ -13,6 +13,7 @@ export default function UsersView() {
     const [showCreate, setShowCreate] = useState(false)
     const [editUser, setEditUser] = useState<any | null>(null)
     const [form, setForm] = useState({ username: '', signature: '', personality: '', forum_dedication: 0.5, active_start: 0, active_end: 23 })
+    const [generateCount, setGenerateCount] = useState('1')
 
     const load = async () => {
         if (!simId) return
@@ -67,12 +68,13 @@ export default function UsersView() {
         } catch (e) { console.error(e); alert('create failed') } finally { setLoading(false) }
     }
 
-    const generateOne = async () => {
+    const generateN = async () => {
         if (!simId) return
+        const count = Math.max(1, parseInt(generateCount) || 1)
         setGenerating(true)
         setLoading(true)
         try {
-            await generateSingleUser(simId)
+            await generateUsers(simId, count)
             await load()
         } catch (e) { console.error(e); alert('generate failed') } finally { setLoading(false); setGenerating(false) }
     }
@@ -104,7 +106,15 @@ export default function UsersView() {
                     <h2>Users</h2>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => setShowCreate(true)} disabled={loading || generating || serverAdvancing || !running}>Add User</button>
-                        <button onClick={generateOne} disabled={loading || generating || serverAdvancing || !running}>
+                        <input
+                            type="number"
+                            min={1}
+                            value={generateCount}
+                            onChange={e => setGenerateCount(e.target.value)}
+                            disabled={loading || generating || serverAdvancing || !running}
+                            style={{ width: 52, textAlign: 'center' }}
+                        />
+                        <button onClick={generateN} disabled={loading || generating || serverAdvancing || !running}>
                             Generate (LLM)
                             {generating && <span className="spinner" aria-hidden="true" style={{ marginLeft: 6 }} />}
                         </button>
