@@ -11,7 +11,7 @@ import dspy
 from dataclasses import dataclass, field
 from generate_det import generate_username, generate_profile_picture
 
-with open("personality-adjectives.txt", "r") as f:
+with open("res/personality-adjectives.txt", "r") as f:
     ADJECTIVES = [line.strip() for line in f.readlines() if line.strip()]
 
 @dataclass
