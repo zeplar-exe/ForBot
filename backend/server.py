@@ -13,6 +13,7 @@ from serialization import (
 )
 import json
 import os
+import secrets
 import dspy
 from pathlib import Path
 import mlflow
@@ -58,11 +59,14 @@ logging.basicConfig(
 
 logger = logging.getLogger("forbot")
 
-simulations: Dict[int, Simulation] = {}
-simulations_running = set()
-simulations_generating = set()
-simulations_advancing = set()
-next_sim_id = 1
+simulations: Dict[str, Simulation] = {}
+simulations_running: set[str] = set()
+simulations_generating: set[str] = set()
+simulations_advancing: set[str] = set()
+
+
+def generate_sim_id() -> str:
+    return secrets.token_hex(8)
 
 
 class SummarizeForumPrompt(dspy.Signature):
@@ -76,7 +80,7 @@ class SummarizeForumPrompt(dspy.Signature):
     summary: str = dspy.OutputField()
 
 
-def sim_filepath(sim_id: int) -> Path:
+def sim_filepath(sim_id: str) -> Path:
     return STORAGE_DIR / f"sim_{sim_id}.json"
 
 
@@ -129,28 +133,37 @@ def build_document_embeddings(sim: Simulation) -> dspy.Embeddings:
     return dspy.Embeddings(corpus=corpus, embedder=embed, k=20)
 
 
-def save_simulation(sim_id: int):
+def save_simulation(sim_id: str):
     sim = simulations.get(sim_id)
+    
     if sim is None:
         logger.warning(f"No simulation {sim_id} to save")
         return
+    
     try:
         fp = sim_filepath(sim_id)
+        
         if fp.exists():
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_fp = BACKUP_DIR / f"sim_{sim_id}_{ts}.json"
+            time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            backup_dir = fp.parent / "backups"
+            backup_dir.mkdir(exist_ok=True)
+            backup_fp = backup_dir / f"sim_{sim_id}_{time}.json"
             backup_fp.write_bytes(fp.read_bytes())
-            existing = sorted(BACKUP_DIR.glob(f"sim_{sim_id}_*.json"))
+            
+            existing = sorted(backup_dir.glob(f"sim_{sim_id}_*.json"))
+            
             for old in existing[:-15]:
                 old.unlink()
+        
         with fp.open("w", encoding="utf-8") as f:
-            json.dump(sim_to_dict(sim), f, indent=2, cls=SimulationEncoder)
+            json.dump(sim_to_dict(sim, sim_id), f, indent=2, cls=SimulationEncoder)
         logger.info(f"Saved simulation {sim_id} to {fp}")
     except Exception as e:
         logger.exception(f"Failed to save simulation {sim_id}: {e}")
 
 
-def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
+def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
     forum_data = data.get("forum", {})
     topic_summary = forum_data.get("topic_summary")
 
@@ -175,7 +188,7 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
     try:
         sim._time = int(data.get("time", 0))
     except Exception as e:
-        logger.exception(f"Failed to parse simulation time: [{sim_id}] {e}")
+        logger.exception(f"Failed to parse simulation time: {e}")
         sim._time = 0
 
     mc = data.get("model_config")
@@ -295,40 +308,31 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
 
 
 def load_all_simulations():
-    global next_sim_id
-    sims = {}
-    max_id = 0
-
     for fp in STORAGE_DIR.glob("sim_*.json"):
         try:
-            sim_id_str = fp.stem.split("_")[-1]
-            sim_id = int(sim_id_str)
             with fp.open("r", encoding="utf-8") as f:
                 data = json.load(f)
-            sim = load_simulation_from_dict(sim_id, data)
-            sims[sim_id] = sim
-            if sim_id > max_id:
-                max_id = sim_id
+            sim_id = data.get("id")
+            if not sim_id:
+                sim_id = fp.stem.removeprefix("sim_")
+            sim = load_simulation_from_dict(data)
+            simulations[sim_id] = sim
             logger.info(f"Loaded simulation {sim_id} from {fp}")
         except Exception as e:
             logger.exception(f"Failed to load simulation from {fp}: {e}")
-
-    if sims:
-        simulations.update(sims)
-        next_sim_id = max_id + 1
 
 
 load_all_simulations()
 
 
-def get_sim_or_404(sim_id: int) -> Simulation:
+def get_sim_or_404(sim_id: str) -> Simulation:
     sim = simulations.get(sim_id)
     if sim is None:
         raise HTTPException(status_code=404, detail="Simulation not found")
     return sim
 
 
-def get_sim_or_404_running(sim_id: int, require_running: bool = False) -> Simulation:
+def get_sim_or_404_running(sim_id: str, require_running: bool = False) -> Simulation:
     sim = simulations.get(sim_id)
     if sim is None:
         raise HTTPException(status_code=404, detail="Simulation not found")
@@ -422,7 +426,7 @@ def _documents_view(sim: Simulation) -> List[Dict[str, Any]]:
     ]
 
 
-def _sim_status(sim_id: int) -> Dict[str, Any]:
+def _sim_status(sim_id: str) -> Dict[str, Any]:
     sim = simulations[sim_id]
     return {
         "sim_id": sim_id,
@@ -449,7 +453,7 @@ def web_home(request: Request):
 
 
 @app.get("/sim/{sim_id}", response_class=HTMLResponse)
-def web_simulation(request: Request, sim_id: int):
+def web_simulation(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     forum = sim.forum
     return templates.TemplateResponse(
@@ -471,7 +475,7 @@ def web_simulation(request: Request, sim_id: int):
 
 
 @app.get("/sim/{sim_id}/thread/{thread_id}", response_class=HTMLResponse)
-def web_thread(request: Request, sim_id: int, thread_id: str):
+def web_thread(request: Request, sim_id: str, thread_id: str):
     sim = get_sim_or_404(sim_id)
     forum = sim.forum
 
@@ -510,7 +514,7 @@ def web_thread(request: Request, sim_id: int, thread_id: str):
 
 
 @app.get("/sim/{sim_id}/users", response_class=HTMLResponse)
-def web_users(request: Request, sim_id: int):
+def web_users(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     return templates.TemplateResponse(
         "users.html",
@@ -525,7 +529,7 @@ def web_users(request: Request, sim_id: int):
 
 
 @app.get("/sim/{sim_id}/ai-settings", response_class=HTMLResponse)
-def web_ai_settings(request: Request, sim_id: int):
+def web_ai_settings(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     cfg = sim.model_config
     models = CLOUD_MODELS + get_installed_ollama_models()
@@ -573,7 +577,6 @@ def htmx_create_sim(
     topic: str = Form(""),
     created_date: str = Form(""),
 ):
-    global next_sim_id
     name = name.strip() or "Default Forum Name"
     topic = topic.strip() or "Default Forum Topic"
 
@@ -590,9 +593,8 @@ def htmx_create_sim(
     forum = Forum(name, topic, created_date=cd, topic_summary=topic_summary)
     sim = Simulation(forum)
 
-    sim_id = next_sim_id
+    sim_id = generate_sim_id()
     simulations[sim_id] = sim
-    next_sim_id += 1
 
     logger.info(f"Created simulation {sim_id} with forum: {sim.forum}")
     save_simulation(sim_id)
@@ -603,7 +605,7 @@ def htmx_create_sim(
 
 
 @app.post("/sim/{sim_id}/state", response_class=HTMLResponse)
-def htmx_toggle_state(request: Request, sim_id: int, running: str = Form("")):
+def htmx_toggle_state(request: Request, sim_id: str, running: str = Form("")):
     get_sim_or_404(sim_id)
     want_running = running.lower() in ("1", "true", "on", "start")
     if want_running:
@@ -619,19 +621,25 @@ def htmx_toggle_state(request: Request, sim_id: int, running: str = Form("")):
 # --- Per-sim header (current time + advance) -------------------------------
 
 @app.get("/sim/{sim_id}/status-bar", response_class=HTMLResponse)
-def htmx_status_bar(request: Request, sim_id: int):
+def htmx_status_bar(request: Request, sim_id: str):
     get_sim_or_404(sim_id)
     return _render(request, "partials/status_bar.html", status=_sim_status(sim_id))
 
 
 @app.post("/sim/{sim_id}/advance", response_class=HTMLResponse)
-def htmx_advance(request: Request, sim_id: int, hours: int = Form(1)):
+def htmx_advance(request: Request, sim_id: str, hours: int = Form(1)):
     get_sim_or_404_running(sim_id, require_running=True)
     simulations_advancing.add(sim_id)
     try:
         sim = simulations[sim_id]
         for _ in range(max(1, hours)):
+            mlflow.update_current_trace(
+                metadata={
+                    "mlflow.trace.session": f"sim-{sim_id}",
+                }
+            )
             new_threads, new_posts = sim.advance_one_hour()
+            
             if new_threads or new_posts:
                 save_simulation(sim_id)
     finally:
@@ -642,7 +650,7 @@ def htmx_advance(request: Request, sim_id: int, hours: int = Form(1)):
 # --- Threads list (polled) -------------------------------------------------
 
 @app.get("/sim/{sim_id}/threads-fragment", response_class=HTMLResponse)
-def htmx_threads(request: Request, sim_id: int):
+def htmx_threads(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     return _render(request, "partials/thread_rows.html", sim_id=sim_id, threads=_threads_view(sim))
 
@@ -650,7 +658,7 @@ def htmx_threads(request: Request, sim_id: int):
 # --- Forum topic edit ------------------------------------------------------
 
 @app.post("/sim/{sim_id}/forum", response_class=HTMLResponse)
-def htmx_update_topic(request: Request, sim_id: int, topic: str = Form(...)):
+def htmx_update_topic(request: Request, sim_id: str, topic: str = Form(...)):
     sim = get_sim_or_404_running(sim_id, require_running=True)
     sim.forum.topic = topic
     save_simulation(sim_id)
@@ -667,7 +675,7 @@ def htmx_update_topic(request: Request, sim_id: int, topic: str = Form(...)):
 # --- Stimuli ---------------------------------------------------------------
 
 @app.post("/sim/{sim_id}/stimuli", response_class=HTMLResponse)
-def htmx_create_stimulus(request: Request, sim_id: int, text: str = Form(...)):
+def htmx_create_stimulus(request: Request, sim_id: str, text: str = Form(...)):
     sim = get_sim_or_404(sim_id)
     s = Stimulus(text=text.strip(), created_tick=sim._time)
     sim.stimuli.append(s)
@@ -677,7 +685,7 @@ def htmx_create_stimulus(request: Request, sim_id: int, text: str = Form(...)):
 
 
 @app.delete("/sim/{sim_id}/stimuli/{stimulus_id}", response_class=HTMLResponse)
-def htmx_delete_stimulus(request: Request, sim_id: int, stimulus_id: str):
+def htmx_delete_stimulus(request: Request, sim_id: str, stimulus_id: str):
     sim = get_sim_or_404(sim_id)
     sim.stimuli = [s for s in sim.stimuli if s.id != stimulus_id]
     save_simulation(sim_id)
@@ -689,7 +697,7 @@ def htmx_delete_stimulus(request: Request, sim_id: int, stimulus_id: str):
 @app.post("/sim/{sim_id}/documents", response_class=HTMLResponse)
 def htmx_create_document(
     request: Request,
-    sim_id: int,
+    sim_id: str,
     title: str = Form(...),
     text: str = Form(...),
     source: str = Form(""),
@@ -708,7 +716,7 @@ def htmx_create_document(
 
 
 @app.delete("/sim/{sim_id}/documents/{doc_id}", response_class=HTMLResponse)
-def htmx_delete_document(request: Request, sim_id: int, doc_id: str):
+def htmx_delete_document(request: Request, sim_id: str, doc_id: str):
     sim = get_sim_or_404(sim_id)
     if doc_id in sim.documents:
         del sim.documents[doc_id]
@@ -723,7 +731,7 @@ def htmx_delete_document(request: Request, sim_id: int, doc_id: str):
 @app.post("/sim/{sim_id}/users", response_class=HTMLResponse)
 def htmx_create_user(
     request: Request,
-    sim_id: int,
+    sim_id: str,
     username: str = Form(""),
     signature: str = Form(""),
     personality: str = Form(""),
@@ -750,7 +758,7 @@ def htmx_create_user(
 @app.post("/sim/{sim_id}/user-update", response_class=HTMLResponse)
 def htmx_update_user(
     request: Request,
-    sim_id: int,
+    sim_id: str,
     user_id: str = Form(...),
     username: str = Form(""),
     signature: str = Form(""),
@@ -774,7 +782,7 @@ def htmx_update_user(
 
 
 @app.post("/sim/{sim_id}/generate-users", response_class=HTMLResponse)
-def htmx_generate_users(request: Request, sim_id: int, count: int = Form(1)):
+def htmx_generate_users(request: Request, sim_id: str, count: int = Form(1)):
     sim = get_sim_or_404_running(sim_id, require_running=True)
     simulations_generating.add(sim_id)
     try:
@@ -790,7 +798,7 @@ def htmx_generate_users(request: Request, sim_id: int, count: int = Form(1)):
 @app.post("/sim/{sim_id}/ai-settings", response_class=HTMLResponse)
 def htmx_save_ai_settings(
     request: Request,
-    sim_id: int,
+    sim_id: str,
     model: str = Form(""),
     temperature: float = Form(0.7),
     top_p: float = Form(0.9),

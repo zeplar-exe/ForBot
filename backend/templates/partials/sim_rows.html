@@ -3,7 +3,7 @@
     {% for s in sims %}
     <div class="row">
       <div class="grow">
-        <div class="title"><a href="/sim/{{ s.id }}">#{{ s.id }} — {{ s.name }}</a></div>
+        <div class="title"><a href="/sim/{{ s.id }}">{{ s.name }}</a></div>
         <div class="muted small">{{ s.topic|truncate(120) }}</div>
         <div class="muted small">created {{ s.created_display }}</div>
       </div>

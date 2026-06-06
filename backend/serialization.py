@@ -70,8 +70,9 @@ def serialize_model_config(sim) -> Optional[Dict[str, Any]]:
     return dataclass_asdict(sim.model_config)
 
 
-def sim_to_dict(sim) -> Dict[str, Any]:
+def sim_to_dict(sim, sim_id: str) -> Dict[str, Any]:
     data: Dict[str, Any] = {
+        "id": sim_id,
         "forum": {
             "name": sim.forum.name,
             "topic": sim.forum.topic,
