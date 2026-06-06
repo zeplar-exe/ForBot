@@ -1,3 +1,5 @@
+# The frontend elements of this file were written with Claude Code
+
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
