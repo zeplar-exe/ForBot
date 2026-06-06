@@ -99,9 +99,9 @@ class ThreadEngagementPrompt(dspy.Signature):
     forum: ForumPromptData = dspy.InputField()
     thread: str = dspy.InputField()
     thread_summary: str = dspy.InputField()
-    thread_post_history: list[str] = dspy.InputField()
-    relevant_posts: list[ViewedPost] = dspy.InputField()
+    thread_post_history: str = dspy.InputField()
     relevant_users: list[UserSummary] = dspy.InputField()
+    relevant_documents: str = dspy.InputField()
     own_posts_count: int = dspy.InputField()
     total_posts_count: int = dspy.InputField()
     emotional_reaction: str = dspy.InputField()
@@ -195,7 +195,8 @@ class Simulation:
         self.posts: List[Post] = []
         self.stimuli: List[Stimulus] = []
         self.documents: dict[str, SimulationDocument] = {}
-        self._lm = None  # set by server via reconfigure_dspy_with_config
+        self._lm: dspy.LM = None  # set by server via reconfigure_dspy_with_config
+        self._document_embeddings: dspy.Embeddings = None  # set by server via reconfigure_dspy_with_config
 
     def get_user_threads(self, user: User) -> List[Thread]:
         return [thread for thread in self.threads if thread.author == user]
@@ -298,10 +299,6 @@ class Simulation:
             recent_posts=recent_post_strs,
         ).summary
         self._logger.debug(f"Updated summary for thread '{thread.title}'")
-
-    def advance_time(self, hours: int):
-        for _ in range(hours):
-            self.advance_one_hour()
 
     def advance_one_hour(self) -> tuple[List[Thread], List[Post]]:
         self._time += 1
@@ -440,8 +437,10 @@ class Simulation:
             previous_post_summaries = [(post, user.viewed_posts[post.id].summary) for post in previous_posts if post.id in user.viewed_posts]
             unique_previous_users = set(post.author.id for post in previous_posts)
             relevant_users = [user.user_summaries[id] for id in unique_previous_users if id in user.user_summaries]
-            relevant_posts = []
-            relevant_documents = [doc for doc in self.forum.documents]
+            relevant_documents = []
+            if thread.summary:
+                relevant_documents = self._document_embeddings(thread.summary)
+                relevant_documents = "\n".join(relevant_documents)
 
             engage_prompt = dspy.Predict(ThreadEngagementPrompt)
             engagement = engage_prompt(
@@ -450,8 +449,8 @@ class Simulation:
                 thread=thread.title,
                 thread_summary=thread.summary or "",
                 thread_post_history='\n'.join([f"{post[0].author.username}: {post[1]}" for post in previous_post_summaries]),
-                relevant_posts=relevant_posts,
                 relevant_users=relevant_users,
+                relevant_documents=relevant_documents,
                 emotional_reaction=emotional_reaction,
                 own_posts_count=own_post_count,
                 total_posts_count=thread_post_count
@@ -504,7 +503,6 @@ class Simulation:
             thread = Thread(
                 title=thread_info.title,
                 author=user,
-                category=None,
                 created_tick=self._time
             )
 

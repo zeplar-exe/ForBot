@@ -1,10 +1,17 @@
+{% set adv_disabled = not status.running or status.advancing %}
 {% include 'partials/status_bar.html' %}
 <form hx-post="/sim/{{ status.sim_id }}/advance"
       hx-target="#sim-status" hx-swap="outerHTML"
-      style="display:flex; gap:6px; align-items:center; margin:0;">
-  <input type="number" name="hours" min="1" value="1" style="width:64px;"
-         {% if not status.running %}disabled{% endif %}>
-  <button class="primary" type="submit" {% if not status.running %}disabled{% endif %}>
-    Advance <span class="spinner indicator"></span>
+      style="margin:0;">
+  <button class="primary advance-btn" type="submit" {% if adv_disabled %}disabled{% endif %}>
+    Advance
+    <input type="number" name="hours" min="1" value="1"
+           {% if adv_disabled %}disabled{% endif %}
+           onclick="event.stopPropagation()"
+           style="width:40px; padding:2px 4px; margin:0 4px; text-align:center;
+                  background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.15);
+                  border-radius:4px; color:inherit; font:inherit; font-size:13px;">
+    hours
+    <span class="spinner indicator" style="margin-left:4px;"></span>
   </button>
 </form>

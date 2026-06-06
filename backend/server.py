@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 import logging
-from typing import Dict, Any, List, Optional, cast
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from generate_det import generate_profile_picture
 from simulation import Simulation
@@ -17,7 +17,6 @@ import dspy
 from pathlib import Path
 import mlflow
 import ollama
-from dataclasses import asdict as dataclass_asdict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,8 +35,10 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7)
-dspy.configure(lm=lm, adapter=dspy.JSONAdapter())
+embed = dspy.Embedder("nomic-embed-text", api_base=OLLAMA_API_BASE)
+dspy.configure(lm=lm, embedder=embed, adapter=dspy.JSONAdapter())
 dspy.enable_logging()
+
 
 
 mlflow.set_tracking_uri("http://127.0.0.1:5001")
@@ -121,6 +122,13 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
     return built
 
 
+def build_document_embeddings(sim: Simulation) -> dspy.Embeddings:
+    corpus = []
+    for doc in sim.documents.values():
+        corpus.append(doc.text)
+    return dspy.Embeddings(corpus=corpus, embedder=embed, k=20)
+
+
 def save_simulation(sim_id: int):
     sim = simulations.get(sim_id)
     if sim is None:
@@ -179,7 +187,6 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
             top_k=int(mc.get("top_k", 40)),
             frequency_penalty=float(mc.get("frequency_penalty", 0.0)),
             presence_penalty=float(mc.get("presence_penalty", 0.0)),
-            whitelist=list(mc.get("whitelist", [])),
             thinking=str(mc.get("thinking", "medium")),
         )
 
@@ -222,7 +229,6 @@ def load_simulation_from_dict(sim_id: int, data: Dict[str, Any]) -> Simulation:
         thread = Thread(
             title=t.get("title", ""),
             author=author,
-            category=cast(ThreadCategory, None),
             created_tick=int(t.get("created_tick", 0)),
             summary=t.get("summary", None),
             id=str(t.get("id")),
@@ -539,7 +545,6 @@ def web_ai_settings(request: Request, sim_id: int):
                 "frequency_penalty": cfg.frequency_penalty,
                 "presence_penalty": cfg.presence_penalty,
                 "thinking": cfg.thinking,
-                "whitelist": ", ".join(cfg.whitelist),
                 "thread_creation_chance": sim.thread_creation_chance,
             },
         ),
@@ -604,6 +609,7 @@ def htmx_toggle_state(request: Request, sim_id: int, running: str = Form("")):
     if want_running:
         simulations_running.add(sim_id)
         simulations[sim_id]._lm = build_lm(simulations[sim_id].model_config)
+        simulations[sim_id]._document_embeddings = build_document_embeddings(simulations[sim_id])
     else:
         simulations_running.discard(sim_id)
     save_simulation(sim_id)
@@ -666,6 +672,7 @@ def htmx_create_stimulus(request: Request, sim_id: int, text: str = Form(...)):
     s = Stimulus(text=text.strip(), created_tick=sim._time)
     sim.stimuli.append(s)
     save_simulation(sim_id)
+    
     return _render(request, "partials/stimulus_list.html", sim_id=sim_id, stimuli=_stimuli_view(sim))
 
 
@@ -696,6 +703,7 @@ def htmx_create_document(
         ForumDocumentReference(id=doc.id, title=doc.title, summary=doc.summary, source=doc.source)
     )
     save_simulation(sim_id)
+    sim._document_embeddings = build_document_embeddings(sim)
     return _render(request, "partials/document_list.html", sim_id=sim_id, documents=_documents_view(sim))
 
 
@@ -706,6 +714,7 @@ def htmx_delete_document(request: Request, sim_id: int, doc_id: str):
         del sim.documents[doc_id]
     sim.forum.documents = [d for d in sim.forum.documents if d.id != doc_id]
     save_simulation(sim_id)
+    sim._document_embeddings = build_document_embeddings(sim)
     return _render(request, "partials/document_list.html", sim_id=sim_id, documents=_documents_view(sim))
 
 
@@ -789,7 +798,6 @@ def htmx_save_ai_settings(
     frequency_penalty: float = Form(0.0),
     presence_penalty: float = Form(0.0),
     thinking: str = Form("medium"),
-    whitelist: str = Form(""),
     thread_creation_chance: float = Form(0.25),
 ):
     sim = get_sim_or_404(sim_id)
@@ -803,7 +811,6 @@ def htmx_save_ai_settings(
     cfg.presence_penalty = float(presence_penalty)
     if thinking in ("low", "medium", "high"):
         cfg.thinking = thinking
-    cfg.whitelist = [x.strip() for x in whitelist.split(",") if x.strip()]
     sim.thread_creation_chance = float(thread_creation_chance)
 
     sim._lm = build_lm(cfg)

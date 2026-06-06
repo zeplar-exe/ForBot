@@ -30,7 +30,6 @@ def serialize_thread(t) -> Dict[str, Any]:
         "id": t.id,
         "title": t.title,
         "author_id": t.author.id,
-        "category": dataclass_asdict(t.category) if t.category else None,
         "created_tick": t.created_tick,
         "summary": t.summary,
     }
@@ -86,7 +85,8 @@ def sim_to_dict(sim) -> Dict[str, Any]:
         "users": [],
         "threads": [],
         "posts": [],
-        "stimuli": []
+        "stimuli": [],
+        "documents": [],
     }
 
     for u in sim.users:
@@ -100,6 +100,9 @@ def sim_to_dict(sim) -> Dict[str, Any]:
 
     for s in sim.stimuli:
         data["stimuli"].append(serialize_stimulus(s))
+
+    for d in sim.documents.values():
+        data["documents"].append(serialize_document(d))
 
     if sim.model_config is not None:
         data["model_config"] = serialize_model_config(sim)

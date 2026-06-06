@@ -19,7 +19,6 @@ class AIConfig:
     top_k: int = 40
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
-    whitelist: List[str] = field(default_factory=list)
     thinking: str = "medium"  # one of: low, medium, high
 
 
@@ -47,13 +46,6 @@ class Forum:
     created_date: datetime = field(default_factory=datetime.now)
     topic_summary: str = "Empty Summary"
     documents: List[ForumDocumentReference] = field(default_factory=list)
-
-
-@dataclass
-class ThreadCategory:
-    name: str
-    description: str
-    id: ThreadId = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 @dataclass
@@ -89,7 +81,6 @@ class User:
 class Thread:
     title: str
     author: User
-    category: Optional[ThreadCategory]
     created_tick: int = 0
     summary: Optional[str] = None
     id: ThreadId = field(default_factory=lambda: str(uuid.uuid4()))
