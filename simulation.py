@@ -316,11 +316,15 @@ class Simulation:
                         "mlflow.trace.user": f"{user.username}",
                     }
                 )
-                try:
-                    added_threads, added_posts = self.simulate_user_activity(user)
-                except Exception as e:
-                    self._logger.warning(f"Skipping user {user.username} due to error: {e}")
-                    continue
+                for attempt in range(3):
+                    try:
+                        added_threads, added_posts = self.simulate_user_activity(user)
+                        break
+                    except Exception as e:
+                        self._logger.warning(f"User {user.username} attempt {attempt + 1}/3 failed: {e}")
+                        if attempt == 2:
+                            self._logger.error(f"Skipping user {user.username} after 3 failed attempts")
+                            added_threads, added_posts = [], []
 
                 hour_threads.extend(added_threads)
                 hour_posts.extend(added_posts)
@@ -337,10 +341,14 @@ class Simulation:
         if threads_to_summarize:
             with self._lm_ctx:
                 for thread in threads_to_summarize.values():
-                    try:
-                        self._update_thread_summary(thread)
-                    except Exception as e:
-                        self._logger.warning(f"Failed to update summary for thread '{thread.title}': {e}")
+                    for attempt in range(3):
+                        try:
+                            self._update_thread_summary(thread)
+                            break
+                        except Exception as e:
+                            self._logger.warning(f"Thread summary '{thread.title}' attempt {attempt + 1}/3 failed: {e}")
+                            if attempt == 2:
+                                self._logger.error(f"Skipping summary for '{thread.title}' after 3 failed attempts")
 
         self._logger.info(f"Simulated hour {self._time % 24} (tick {self._time}) — +{len(hour_threads)} threads, +{len(hour_posts)} posts, {len(threads_to_summarize)} summaries updated")
         return hour_threads, hour_posts
