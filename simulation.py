@@ -219,12 +219,11 @@ class Simulation:
             self._generate_users(num_users)
 
     def _generate_users(self, num_users: int):
-        _json_adapter = dspy.JSONAdapter()
-        generate_archetype = dspy.ChainOfThought(GenerateArchetypePrompt, adapter=_json_adapter)
-        generate_signature = dspy.Predict(GenerateSignaturePrompt, adapter=_json_adapter)
-        generate_voice = dspy.Predict(GenerateVoiceProfilePrompt, adapter=_json_adapter)
-        generate_opinion_profile = dspy.ChainOfThought(GenerateOpinionProfilePrompt, adapter=_json_adapter)
-        generate_real_life_details = dspy.Predict(GenerateRealLifeDetailsPrompt, adapter=_json_adapter)
+        generate_archetype = dspy.ChainOfThought(GenerateArchetypePrompt)
+        generate_signature = dspy.Predict(GenerateSignaturePrompt)
+        generate_voice = dspy.Predict(GenerateVoiceProfilePrompt)
+        generate_opinion_profile = dspy.ChainOfThought(GenerateOpinionProfilePrompt)
+        generate_real_life_details = dspy.Predict(GenerateRealLifeDetailsPrompt)
 
         forum_data = ForumPromptData(
             name=self.forum.name,
@@ -232,57 +231,58 @@ class Simulation:
         )
 
         for i in range(num_users):
-            personality = f"You are best described by and generally show the following personality traits in your threads and posts: {', '.join(random.choices(ADJECTIVES, k=4))}."
-            
-            archetype = generate_archetype(
-                forum=forum_data,
-                personality=personality
-            ).archetype
-            
-            personality += f" Your archetype or role in the forum is: {archetype}."
+            with dspy.context(adapter=dspy.JSONAdapter()):
+                personality = f"You are best described by and generally show the following personality traits in your threads and posts: {', '.join(random.choices(ADJECTIVES, k=4))}."
 
-            opinions = generate_opinion_profile(
-                forum=forum_data,
-                personality=personality
-            ).opinions
-            personality += " Your opinions and stances on topics relevant to this forum are: " + "; ".join(opinions) + "."
+                archetype = generate_archetype(
+                    forum=forum_data,
+                    personality=personality
+                ).archetype
 
-            real_life_details = generate_real_life_details(
-                personality=personality
-            ).real_life_details
-            personality += " Some real life details about you are: " + "; ".join(real_life_details) + "."
+                personality += f" Your archetype or role in the forum is: {archetype}."
 
-            voice_profile = generate_voice(
-                forum=forum_data,
-                personality=personality,
-            ).voice_profile.strip()
+                opinions = generate_opinion_profile(
+                    forum=forum_data,
+                    personality=personality
+                ).opinions
+                personality += " Your opinions and stances on topics relevant to this forum are: " + "; ".join(opinions) + "."
 
-            username = generate_username()
-            profile_picture = generate_profile_picture()
+                real_life_details = generate_real_life_details(
+                    personality=personality
+                ).real_life_details
+                personality += " Some real life details about you are: " + "; ".join(real_life_details) + "."
 
-            signature = generate_signature(
-                forum=forum_data,
-                user=UserPromptData(
-                    username=username,
+                voice_profile = generate_voice(
+                    forum=forum_data,
                     personality=personality,
+                ).voice_profile.strip()
+
+                username = generate_username()
+                profile_picture = generate_profile_picture()
+
+                signature = generate_signature(
+                    forum=forum_data,
+                    user=UserPromptData(
+                        username=username,
+                        personality=personality,
+                        voice_profile=voice_profile
+                    )
+                ).post_signature.strip()
+
+                forum_dedication = random.uniform(0.1, 1.0)
+                active_start = random.randint(0, 20)
+                active_end = active_start + random.randint(4, 8)
+                active_hours = [active_start, active_end % 24]
+
+                user = User(
+                    username=username,
+                    profile_picture=profile_picture,
+                    signature=signature,
+                    personality=personality,
+                    forum_dedication=forum_dedication,
+                    active_hours=active_hours,
                     voice_profile=voice_profile
                 )
-            ).post_signature.strip()
-
-            forum_dedication = random.uniform(0.1, 1.0)
-            active_start = random.randint(0, 20)
-            active_end = active_start + random.randint(4, 8)
-            active_hours = [active_start, active_end % 24]
-
-            user = User(
-                username=username,
-                profile_picture=profile_picture,
-                signature=signature,
-                personality=personality,
-                forum_dedication=forum_dedication,
-                active_hours=active_hours,
-                voice_profile=voice_profile
-            )
 
             self.users.append(user)
             self._logger.info(f"Generated user: {user.username}")
