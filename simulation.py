@@ -444,7 +444,7 @@ class Simulation:
             unique_previous_users = set(post.author.id for post in previous_posts)
             relevant_users = [user.user_summaries[id] for id in unique_previous_users if id in user.user_summaries]
             relevant_documents = []
-            if thread.summary:
+            if thread.summary and self._document_embeddings is not None:
                 relevant_documents = self._document_embeddings(thread.summary)
                 relevant_documents = "\n".join(relevant_documents)
 

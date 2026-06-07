@@ -54,16 +54,16 @@ mlflow.set_experiment("ForBot")
 
 os.environ["OLLAMA_NUM_PARALLEL"] = "4"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ],
-)
-
 logger = logging.getLogger("forbot")
+logger.setLevel(logging.INFO)
+_fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+_fh = logging.FileHandler(LOG_FILE)
+_fh.setFormatter(_fmt)
+_sh = logging.StreamHandler()
+_sh.setFormatter(_fmt)
+logger.addHandler(_fh)
+logger.addHandler(_sh)
+logger.propagate = False  # don't double-log via root
 
 simulations: Dict[str, Simulation] = {}
 simulations_running: set[str] = set()
@@ -132,10 +132,11 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
     return built
 
 
-def build_document_embeddings(sim: Simulation) -> dspy.Embeddings:
-    corpus = []
-    for doc in sim.documents.values():
-        corpus.append(doc.text)
+def build_document_embeddings(sim: Simulation) -> Optional[dspy.Embeddings]:
+    corpus = [doc.text for doc in sim.documents.values()]
+    if len(corpus) < 2:
+        # dspy.Embeddings crashes with < 2 items (1D vs 2D array issue)
+        return None
     return dspy.Embeddings(corpus=corpus, embedder=embed, k=20)
 
 
