@@ -3,6 +3,7 @@
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
@@ -33,6 +34,9 @@ LOG_FILE = "forbot.log"
 OLLAMA_API_BASE = "http://157.157.221.177:10902"
 
 app = FastAPI(title="ForBot Simulation Server")
+
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
