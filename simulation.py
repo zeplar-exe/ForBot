@@ -316,23 +316,31 @@ class Simulation:
                         "mlflow.trace.user": f"{user.username}",
                     }
                 )
-                added_threads, added_posts = self.simulate_user_activity(user)
+                try:
+                    added_threads, added_posts = self.simulate_user_activity(user)
+                except Exception as e:
+                    self._logger.warning(f"Skipping user {user.username} due to error: {e}")
+                    continue
+
                 hour_threads.extend(added_threads)
                 hour_posts.extend(added_posts)
                 self.threads.extend(added_threads)
-                
+
                 for post in added_posts:
                     self.posts.append(post)
                     count = len(self.get_posts_in_thread(post.thread))
                     if count % self.thread_summary_update_interval == 0:
                         threads_to_summarize[post.thread.id] = post.thread
-                
+
                 self._logger.debug(f"Simulated activity for user {user.username} [{i}/{len(self.users)}] ({len(added_threads)} new threads, {len(added_posts)} new posts)")
 
         if threads_to_summarize:
             with self._lm_ctx:
                 for thread in threads_to_summarize.values():
-                    self._update_thread_summary(thread)
+                    try:
+                        self._update_thread_summary(thread)
+                    except Exception as e:
+                        self._logger.warning(f"Failed to update summary for thread '{thread.title}': {e}")
 
         self._logger.info(f"Simulated hour {self._time % 24} (tick {self._time}) — +{len(hour_threads)} threads, +{len(hour_posts)} posts, {len(threads_to_summarize)} summaries updated")
         return hour_threads, hour_posts

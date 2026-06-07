@@ -2,6 +2,7 @@
 {% include 'partials/status_bar.html' %}
 <form hx-post="/sim/{{ status.sim_id }}/advance"
       hx-target="#sim-status" hx-swap="outerHTML"
+      hx-disabled-elt="button"
       style="margin:0;">
   <button class="primary advance-btn" type="submit" {% if adv_disabled %}disabled{% endif %}>
     Advance

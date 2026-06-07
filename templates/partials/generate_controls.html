@@ -5,6 +5,7 @@
      hx-swap="outerHTML">
   <button onclick="toggleModal('add-user-modal', true)" {% if not status.running %}disabled{% endif %}>Add User</button>
   <form hx-post="/sim/{{ sim_id }}/generate-users" hx-target="#user-list" hx-swap="outerHTML"
+        hx-disabled-elt="button"
         style="display:flex; gap:6px; align-items:center; margin:0;">
     <input type="number" name="count" min="1" value="1" style="width:56px;"
            {% if gen_disabled %}disabled{% endif %}>
