@@ -10,21 +10,41 @@ MODEL_FILE="Qwen2.5-72B-Instruct-abliterated.i1-Q4_K_M.gguf"
 EMBED_MODEL="nomic-embed-text"
 OLLAMA_MODEL_NAME="qwen2.5-abliterated-q4"
 
+MODELS_TMP="$(pwd)/models_tmp"
+OLLAMA_PID=""
+
+cleanup() {
+    echo "Cleaning up..."
+    rm -rf "${MODELS_TMP}"
+    [[ -n "${OLLAMA_PID}" ]] && kill "${OLLAMA_PID}" 2>/dev/null || true
+}
+trap cleanup EXIT
+
 echo "=== ForBot Local LLM Setup ==="
 
-# 1. Download GGUF
+# 1. Download GGUF to a temp dir (deleted after import)
 echo "[1/4] Downloading ${MODEL_FILE} from ${MODEL_REPO}..."
-hf download "${MODEL_REPO}" "${MODEL_FILE}" --local-dir ./models
+mkdir -p "${MODELS_TMP}"
+hf download "${MODEL_REPO}" "${MODEL_FILE}" --local-dir "${MODELS_TMP}"
 
-# 2. Create and import Ollama Modelfile
-echo "[2/4] Starting Ollama server in background..."
-ollama serve &>/tmp/ollama.log &
-OLLAMA_PID=$!
-sleep 3  # give it a moment to be ready
+# 2. Start Ollama if not already running
+echo "[2/4] Ensuring Ollama is running..."
+if ollama list &>/dev/null; then
+    echo "      Ollama already running, using existing instance."
+else
+    ollama serve &>/tmp/ollama.log &
+    OLLAMA_PID=$!
+    echo "      Waiting for Ollama to be ready..."
+    for i in $(seq 1 30); do
+        ollama list &>/dev/null && break
+        sleep 1
+        [[ $i -eq 30 ]] && { echo "ERROR: Ollama failed to start. Check /tmp/ollama.log"; exit 1; }
+    done
+fi
 
 echo "      Importing model as '${OLLAMA_MODEL_NAME}'..."
 cat > /tmp/forbot_modelfile <<EOF
-FROM ./models/${MODEL_FILE}
+FROM ${MODELS_TMP}/${MODEL_FILE}
 EOF
 ollama create "${OLLAMA_MODEL_NAME}" -f /tmp/forbot_modelfile
 rm /tmp/forbot_modelfile
@@ -35,10 +55,8 @@ ollama pull "${EMBED_MODEL}"
 
 # 4. Verify
 echo "[4/4] Verifying models are available..."
-echo "Installed Ollama models:"
 ollama list | grep -E "${OLLAMA_MODEL_NAME}|${EMBED_MODEL}" || true
 
-kill $OLLAMA_PID 2>/dev/null || true
-
+echo ""
 echo "Done. Start Ollama with:"
 echo "  OLLAMA_NUM_PARALLEL=4 ollama serve"
