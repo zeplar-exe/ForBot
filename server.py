@@ -135,7 +135,6 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
 def build_document_embeddings(sim: Simulation) -> Optional[dspy.Embeddings]:
     corpus = [doc.text for doc in sim.documents.values()]
     if len(corpus) < 2:
-        # dspy.Embeddings crashes with < 2 items (1D vs 2D array issue)
         return None
     return dspy.Embeddings(corpus=corpus, embedder=embed, k=20)
 
@@ -300,7 +299,6 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
             id=str(d.get("id")),
         )
         sim.documents[doc.id] = doc
-        # Rebuild forum document references from the document store
         sim.forum.documents = [
             ForumDocumentReference(
                 id=doc.id,
@@ -781,6 +779,12 @@ def htmx_update_user(
     logger.info(f"Updated user {user.id} in sim {sim_id}")
     save_simulation(sim_id)
     return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
+
+
+@app.get("/sim/{sim_id}/generate-controls", response_class=HTMLResponse)
+def htmx_generate_controls(request: Request, sim_id: str):
+    get_sim_or_404(sim_id)
+    return _render(request, "partials/generate_controls.html", sim_id=sim_id, status=_sim_status(sim_id))
 
 
 @app.post("/sim/{sim_id}/generate-users", response_class=HTMLResponse)
