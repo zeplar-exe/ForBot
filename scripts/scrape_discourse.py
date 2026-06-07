@@ -1,4 +1,5 @@
-"""
+"""Generated with Claude Code.
+
 Scrape a Discourse forum and save posts as JSONL for LoRA training data.
 
 Usage:

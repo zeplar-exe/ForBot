@@ -379,6 +379,12 @@ class Simulation:
                     voice_profile=thread.author.voice_profile
                 )).should_view
             
+            user.viewed_posts[thread.id] = ViewedPost(
+                post_id=thread_posts[0].id,
+                view_date=self._time,
+                summary=None
+            )
+            
             if not should_view:
                 continue
             

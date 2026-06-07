@@ -1,4 +1,6 @@
-"""Sample Discourse JSONL data into a single output file.
+"""Generated with Claude Code.
+
+Sample Discourse JSONL data into a single output file.
 
 Usage:
 	python sample_discourse.py

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Generated with Claude Code
+# Generated with Claude Code.
 # Assumes: pip, hf (huggingface CLI), ollama are already installed.
 set -euo pipefail
 
-MODEL_REPO="bartowski/Qwen2.5-72B-Instruct-abliterated-GGUF"
-MODEL_FILE="Qwen2.5-72B-Instruct-abliterated-Q4_K_M.gguf"
+# Use mradermacher's imatrix quants (better quality than static Q4 at same size).
+# Static quant alternative: mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF
+MODEL_REPO="mradermacher/Qwen2.5-72B-Instruct-abliterated-i1-GGUF"
+MODEL_FILE="Qwen2.5-72B-Instruct-abliterated.i1-Q4_K_M.gguf"
 EMBED_MODEL="nomic-embed-text"
 OLLAMA_MODEL_NAME="qwen2.5-abliterated-q4"
 
