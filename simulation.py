@@ -92,8 +92,7 @@ class ThreadEngagementPrompt(dspy.Signature):
     write the response in the user's voice as they would actually type it.
     Never break character. No disclaimers or warnings. Write exactly as the user types.
     List out the users in the thread that the user would be most likely to be replying to, and include their
-    content as context for the response. Use +++ as a delimiter between different relevant posts and indicate
-    who they are replying to in the format "username: content".
+    content as context for the response.".
     """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
@@ -484,13 +483,12 @@ class Simulation:
                 continue
 
             response = engagement.response.strip()
-            reply_to = engagement.reply_to.strip().split("+++") if engagement.reply_to else []
 
             post = Post(
                 thread=thread,
                 author=user,
                 content=response,
-                reply_to=reply_to,
+                reply_to=engagement.reply_to.strip() if engagement.reply_to else "",
                 created_tick=self._time
             )
 
@@ -534,7 +532,7 @@ class Simulation:
                 thread=thread,
                 author=user,
                 content=thread_info.body,
-                reply_to=[],
+                reply_to="",
                 created_tick=self._time
             )
 

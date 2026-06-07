@@ -91,7 +91,7 @@ class Post:
     thread: Thread
     author: User
     content: str
-    reply_to: List[str] = field(default_factory=list)
+    reply_to: str = ""
     created_tick: int = 0
     id: PostId = field(default_factory=lambda: str(uuid.uuid4()))
 
