@@ -17,7 +17,12 @@ echo "[1/4] Downloading ${MODEL_FILE} from ${MODEL_REPO}..."
 hf download "${MODEL_REPO}" "${MODEL_FILE}" --local-dir ./models
 
 # 2. Create and import Ollama Modelfile
-echo "[2/4] Importing into Ollama as '${OLLAMA_MODEL_NAME}'..."
+echo "[2/4] Starting Ollama server in background..."
+ollama serve &>/tmp/ollama.log &
+OLLAMA_PID=$!
+sleep 3  # give it a moment to be ready
+
+echo "      Importing model as '${OLLAMA_MODEL_NAME}'..."
 cat > /tmp/forbot_modelfile <<EOF
 FROM ./models/${MODEL_FILE}
 EOF
@@ -32,6 +37,8 @@ ollama pull "${EMBED_MODEL}"
 echo "[4/4] Verifying models are available..."
 echo "Installed Ollama models:"
 ollama list | grep -E "${OLLAMA_MODEL_NAME}|${EMBED_MODEL}" || true
+
+kill $OLLAMA_PID 2>/dev/null || true
 
 echo "Done. Start Ollama with:"
 echo "  OLLAMA_NUM_PARALLEL=4 ollama serve"
