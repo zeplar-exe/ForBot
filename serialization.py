@@ -78,7 +78,6 @@ def sim_to_dict(sim, sim_id: str) -> Dict[str, Any]:
             "topic": sim.forum.topic,
             "topic_summary": sim.forum.topic_summary,
             "created_date": sim.forum.created_date.isoformat(),
-            "documents": [serialize_document(d) for d in sim.forum.documents],
         },
         "model_config": None,
         "time": sim._time,

@@ -26,13 +26,18 @@ mkdir -p "${OLLAMA_MODELS}"
 
 echo "=== ForBot Local LLM Setup ==="
 
+# 0. Python deps
+echo "[0/5] Installing Python dependencies..."
+pip install -U "pydantic>=2"
+pip install -r "$(dirname "$0")/../backend/requirements.txt"
+
 # 1. Download GGUF to a temp dir (deleted after import)
-echo "[1/4] Downloading ${MODEL_FILE} from ${MODEL_REPO}..."
+echo "[1/5] Downloading ${MODEL_FILE} from ${MODEL_REPO}..."
 mkdir -p "${MODELS_TMP}"
 hf download "${MODEL_REPO}" "${MODEL_FILE}" --local-dir "${MODELS_TMP}"
 
 # 2. Start Ollama if not already running
-echo "[2/4] Ensuring Ollama is running..."
+echo "[2/5] Ensuring Ollama is running..."
 if ollama list &>/dev/null; then
     echo "      Ollama already running, using existing instance."
 else
@@ -54,11 +59,11 @@ ollama create "${OLLAMA_MODEL_NAME}" -f /tmp/forbot_modelfile
 rm /tmp/forbot_modelfile
 
 # 3. Pull embedding model
-echo "[3/4] Pulling embedding model '${EMBED_MODEL}'..."
+echo "[3/5] Pulling embedding model '${EMBED_MODEL}'..."
 ollama pull "${EMBED_MODEL}"
 
 # 4. Verify
-echo "[4/4] Verifying models are available..."
+echo "[5/5] Verifying models are available..."
 ollama list | grep -E "${OLLAMA_MODEL_NAME}|${EMBED_MODEL}" || true
 
 echo ""
