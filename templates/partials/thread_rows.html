@@ -8,6 +8,7 @@
       <div class="grow">
         <div class="title"><a href="/sim/{{ sim_id }}/thread/{{ t.id }}">{{ t.title }}</a></div>
         <div class="muted small">by {{ t.author }} &middot; {{ t.created_display }}</div>
+        {% if t.summary %}<div class="muted small" style="margin-top:3px;">{{ t.summary }}</div>{% endif %}
       </div>
       <div class="stats"><div><span class="n">{{ t.post_count }}</span>posts</div></div>
     </div>

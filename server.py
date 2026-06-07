@@ -423,6 +423,7 @@ def _threads_view(sim: Simulation) -> List[Dict[str, Any]]:
         {
             "id": t.id,
             "title": t.title,
+            "summary": t.summary or "",
             "author": t.author.username,
             "created_display": _display_date(sim.forum, t.created_tick),
             "post_count": post_counts.get(t.id, 0),

@@ -110,9 +110,10 @@ class ThreadEngagementPrompt(dspy.Signature):
 
 class CreateThreadPrompt(dspy.Signature):
     """
-    Create a thread title and body rooted in the user's specific opinions and voice.
+    Create a thread title and body anchored to a single, specific opinion or stance.
+    Pick ONE thing to say and commit to it. Do not blend multiple opinions, subjects,
+    or tangents into the same post — one thesis, one voice, done.
     The thread should feel like it could only have been written by this particular person.
-    Let the user's stances drive the content, not generic takes on the forum topic.
     If recent_stimuli are provided, use them as raw material to react to. Filter them
     through the user's opinions and voice rather than simply restating them.
     Never break character. No disclaimers or warnings. Write exactly as the user types.
@@ -147,7 +148,7 @@ class GenerateUserSummaryPrompt(dspy.Signature):
     This should be in the user's voice and reflect how they would see the target user. Be concise. Do not break character.
     """
     self_user: UserPromptData = dspy.InputField()
-    target_user: UserPromptData = dspy.InputField()
+    target_username: str = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
     target_recent_posts: list[dict] = dspy.InputField()
     old_summary: str = dspy.InputField()
@@ -177,7 +178,7 @@ class DecideViewThreadPrompt(dspy.Signature):
     forum: ForumPromptData = dspy.InputField()
     thread_title: str = dspy.InputField()
     thread_body: str = dspy.InputField()
-    thread_author: UserPromptData = dspy.InputField()
+    thread_author_username: str = dspy.InputField()
     should_view: bool = dspy.OutputField()
 
 class Simulation:
@@ -218,6 +219,7 @@ class Simulation:
         with self._lm_ctx:
             self._generate_users(num_users)
 
+    @mlflow.trace
     def _generate_users(self, num_users: int):
         generate_archetype = dspy.ChainOfThought(GenerateArchetypePrompt)
         generate_signature = dspy.Predict(GenerateSignaturePrompt)
@@ -395,11 +397,8 @@ class Simulation:
                 forum=forum_data,
                 thread_title=thread.title,
                 thread_body=thread_posts[0].content,
-                thread_author=UserPromptData(
-                    username=thread.author.username,
-                    personality=thread.author.personality,
-                    voice_profile=thread.author.voice_profile
-                )).should_view
+                thread_author_username=thread.author.username,
+            ).should_view
             
             user.viewed_posts[thread.id] = ViewedPost(
                 post_id=thread_posts[0].id,
@@ -445,13 +444,9 @@ class Simulation:
                     user_summary_prompt = dspy.ChainOfThought(GenerateUserSummaryPrompt)
                     new_summary = user_summary_prompt(
                         self_user=user_data,
-                        target_user=UserPromptData(
-                            username=post.author.username,
-                            personality=post.author.personality,
-                            voice_profile=post.author.voice_profile
-                        ),
+                        target_username=post.author.username,
                         forum=forum_data,
-                        target_recent_posts=[{post.id: post.content} for post in self.get_user_posts(post.author)[:10]],
+                        target_recent_posts=[{p.id: p.content} for p in self.get_user_posts(post.author)[:10]],
                         old_summary=user_summary.summary
                     ).new_summary
 
@@ -501,18 +496,16 @@ class Simulation:
 
         if random.random() < self.thread_creation_chance:
             foci = [
-                "You decide to create a new thread to express your thoughts on a topic you care about.",
-                "You make a thread to share something interesting you found related to the forum topic.",
-                "You want to start a discussion on a topic that hasn't been covered yet in the forum.",
-                "You want to share a personal story or experience related to the forum topic.",
-                "You want to ask a question to the community about something you're curious about related to the forum topic.",
-                "You want to share your opinion on a recent news event related to the forum topic.",
-                "You want to share a controversial opinion to spark discussion in the forum.",
-                "You want to share a funny meme or joke related to the forum topic to entertain the community.",
-                "You want to share a detailed analysis or review of something related to the forum topic that you think others would find interesting.",
-                "You want to share a creative piece of writing, art, or media related to the forum topic that you made and want feedback on.",
-                "You want to share a helpful guide or tutorial related to the forum topic that you think others would benefit from.",
-                "You want to share a thought-provoking philosophical question related to the forum topic to spark deep discussion in the community.",
+                "Pick one opinion you hold and write a post defending it. One point only.",
+                "Something in the forum topic has been bugging you. Write a short, pointed post about that one thing.",
+                "Share one piece of news or information relevant to the forum. React to it in your voice.",
+                "Ask the community one specific question you genuinely want answered.",
+                "Share one personal experience related to the forum topic. Stay on that story.",
+                "Take one stance on a contested topic in this forum and argue it directly.",
+                "Write a short rant about one specific thing you think people in this forum get wrong.",
+                "Share one recommendation, tip, or piece of advice on a specific aspect of the forum topic.",
+                "React to something frustrating or exciting you encountered related to the forum topic.",
+                "Make one focused, concrete observation about the forum topic that you think is underappreciated.",
             ]
             thread_focus = random.choice(foci)
 
