@@ -219,11 +219,12 @@ class Simulation:
             self._generate_users(num_users)
 
     def _generate_users(self, num_users: int):
-        generate_archetype = dspy.ChainOfThought(GenerateArchetypePrompt)
-        generate_signature = dspy.Predict(GenerateSignaturePrompt)
-        generate_voice = dspy.ChainOfThought(GenerateVoiceProfilePrompt)
-        generate_opinion_profile = dspy.ChainOfThought(GenerateOpinionProfilePrompt)
-        generate_real_life_details = dspy.ChainOfThought(GenerateRealLifeDetailsPrompt)
+        _json_adapter = dspy.JSONAdapter()
+        generate_archetype = dspy.ChainOfThought(GenerateArchetypePrompt, adapter=_json_adapter)
+        generate_signature = dspy.Predict(GenerateSignaturePrompt, adapter=_json_adapter)
+        generate_voice = dspy.Predict(GenerateVoiceProfilePrompt, adapter=_json_adapter)
+        generate_opinion_profile = dspy.ChainOfThought(GenerateOpinionProfilePrompt, adapter=_json_adapter)
+        generate_real_life_details = dspy.Predict(GenerateRealLifeDetailsPrompt, adapter=_json_adapter)
 
         forum_data = ForumPromptData(
             name=self.forum.name,
@@ -315,6 +316,10 @@ class Simulation:
                         "mlflow.trace.user": f"{user.username}",
                     }
                 )
+                
+                added_threads = []
+                added_posts = []
+                
                 for attempt in range(3):
                     try:
                         added_threads, added_posts = self.simulate_user_activity(user)

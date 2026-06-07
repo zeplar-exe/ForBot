@@ -41,7 +41,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7)
+lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7,
+             stop=["### User:", "### Human:", "\nHuman:", "\nUser:"])
 embed = dspy.Embedder("nomic-embed-text", api_base=OLLAMA_API_BASE)
 dspy.configure(lm=lm, embedder=embed)
 dspy.enable_logging()
@@ -122,6 +123,7 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
         kwargs["presence_penalty"] = cfg.presence_penalty
 
     if cfg.model.startswith("ollama"):
+        kwargs["stop"] = ["### User:", "### Human:", "\nHuman:", "\nUser:"]
         built = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="ollama", **kwargs)
     elif is_anthropic:
         built = dspy.LM(cfg.model, api_key=os.getenv("CLAUDE_API_KEY", ""), **kwargs)
