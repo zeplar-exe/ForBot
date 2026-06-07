@@ -30,8 +30,8 @@ STORAGE_DIR.mkdir(exist_ok=True)
 BACKUP_DIR = Path(__file__).parent / "backups"
 BACKUP_DIR.mkdir(exist_ok=True)
 
-LOG_FILE = "forbot.log"
-OLLAMA_API_BASE = "http://157.157.221.177:10902"
+LOG_FILE = os.getenv("LOG_FILE", "forbot.log")
+OLLAMA_API_BASE = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
 
 app = FastAPI(title="ForBot Simulation Server")
 
@@ -122,7 +122,7 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
         kwargs["presence_penalty"] = cfg.presence_penalty
 
     if cfg.model.startswith("ollama"):
-        built = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="", **kwargs)
+        built = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="ollama", **kwargs)
     elif is_anthropic:
         built = dspy.LM(cfg.model, api_key=os.getenv("CLAUDE_API_KEY", ""), **kwargs)
     else:
@@ -640,11 +640,6 @@ def htmx_advance(request: Request, sim_id: str, hours: int = Form(1)):
     try:
         sim = simulations[sim_id]
         for _ in range(max(1, hours)):
-            mlflow.update_current_trace(
-                metadata={
-                    "mlflow.trace.session": f"sim-{sim_id}",
-                }
-            )
             new_threads, new_posts = sim.advance_one_hour()
             
             if new_threads or new_posts:

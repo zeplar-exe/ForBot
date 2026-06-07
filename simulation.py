@@ -300,6 +300,7 @@ class Simulation:
         ).summary
         self._logger.debug(f"Updated summary for thread '{thread.title}'")
 
+    @mlflow.trace
     def advance_one_hour(self) -> tuple[List[Thread], List[Post]]:
         self._time += 1
         hour_threads: List[Thread] = []
@@ -311,6 +312,7 @@ class Simulation:
             if user.active_hours[0] <= self._time % 24 < user.active_hours[1]:
                 mlflow.update_current_trace(
                     metadata={
+                        "mlflow.trace.session": f"forum-{self.forum.name}",
                         "mlflow.trace.user": f"{user.username}",
                     }
                 )
