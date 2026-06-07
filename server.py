@@ -132,8 +132,33 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
     return built
 
 
+def chunk_document(title: str, text: str, max_chars: int = 600, overlap_chars: int = 100) -> list[str]:
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    chunks = []
+    current = []
+    current_len = 0
+    
+    for line in lines:
+        if current_len + len(line) > max_chars and current:
+            chunk_text = " ".join(current)
+            chunks.append(f"[{title}]\n{chunk_text}")
+            overlap = chunk_text[-overlap_chars:]
+            current = [overlap, line]
+            current_len = len(overlap) + len(line)
+        else:
+            current.append(line)
+            current_len += len(line)
+        
+    if current:
+        chunks.append(f"[{title}]\n{' '.join(current)}")
+    
+    return chunks
+
+
 def build_document_embeddings(sim: Simulation) -> Optional[dspy.Embeddings]:
-    corpus = [doc.text for doc in sim.documents.values()]
+    corpus = []
+    for doc in sim.documents.values():
+        corpus.extend(chunk_document(doc.title, doc.text))
     if len(corpus) < 2:
         return None
     return dspy.Embeddings(corpus=corpus, embedder=embed, k=20)
