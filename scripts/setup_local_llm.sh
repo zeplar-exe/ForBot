@@ -10,7 +10,7 @@ MODEL_FILE="Qwen2.5-72B-Instruct-abliterated.i1-Q4_K_M.gguf"
 EMBED_MODEL="nomic-embed-text"
 OLLAMA_MODEL_NAME="qwen2.5-abliterated-q4"
 
-MODELS_TMP="$(pwd)/models_tmp"
+MODELS_TMP="/workspace/models_tmp"
 OLLAMA_PID=""
 
 cleanup() {
@@ -19,6 +19,10 @@ cleanup() {
     [[ -n "${OLLAMA_PID}" ]] && kill "${OLLAMA_PID}" 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# Store Ollama blobs on the large volume, not ~/.ollama on root disk
+export OLLAMA_MODELS="/workspace/ollama_models"
+mkdir -p "${OLLAMA_MODELS}"
 
 echo "=== ForBot Local LLM Setup ==="
 
