@@ -403,6 +403,7 @@ class Simulation:
             user.viewed_posts[thread.id] = ViewedPost(
                 post_id=thread_posts[0].id,
                 view_date=self._time,
+                author_username=thread.author.username,
                 summary=None
             )
             
@@ -426,6 +427,7 @@ class Simulation:
                 user.viewed_posts[post.id] = ViewedPost(
                     post_id=post.id,
                     view_date=self._time,
+                    author_username=post.author.username,
                     summary=summary
                 )
 
@@ -435,6 +437,7 @@ class Simulation:
                         user_id=post.author.id,
                         update_tick=0,
                         last_updated=0,
+                        summarized_user_username=post.author.username,
                         summary=""
                     )
                     user.user_summaries[post.author.id] = user_summary
@@ -460,7 +463,9 @@ class Simulation:
             previous_post_summaries = [(post, user.viewed_posts[post.id].summary) for post in previous_posts if post.id in user.viewed_posts]
             unique_previous_users = set(post.author.id for post in previous_posts)
             relevant_users = [user.user_summaries[id] for id in unique_previous_users if id in user.user_summaries]
+            relevant_users = [{"summarized_user_username": u.summarized_user_username, "summary": u.summary} for u in relevant_users]
             relevant_documents = []
+            
             if thread.summary and self._document_embeddings is not None:
                 relevant_documents = self._document_embeddings(thread.summary)
                 relevant_documents = "\n".join(relevant_documents)

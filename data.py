@@ -52,6 +52,7 @@ class Forum:
 class ViewedPost:
     post_id: PostId
     view_date: int
+    author_username: str
     summary: Optional[str] = None
 
 
@@ -60,6 +61,7 @@ class UserSummary:
     user_id: UserId
     update_tick: int
     last_updated: int
+    summarized_user_username: str
     summary: str
 
 
