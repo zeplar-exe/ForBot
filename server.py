@@ -111,11 +111,14 @@ def build_lm(cfg: AIConfig) -> dspy.LM:
         kwargs["presence_penalty"] = cfg.presence_penalty
 
     if cfg.model.startswith("ollama"):
+        logger.info(f"Building Ollama LM with model {cfg.model} and kwargs: {kwargs}")
         kwargs["stop"] = ["### User:", "### Human:", "\nHuman:", "\nUser:"]
         built = dspy.LM(cfg.model, api_base=OLLAMA_API_BASE, api_key="ollama", **kwargs)
     elif is_anthropic:
+        logger.info(f"Building Anthropic LM with model {cfg.model} and kwargs: {kwargs}")
         built = dspy.LM(cfg.model, api_key=os.getenv("CLAUDE_API_KEY", ""), **kwargs)
     else:
+        logger.info(f"Building <unknown> LM with model {cfg.model} and kwargs: {kwargs}")
         built = dspy.LM(cfg.model, **kwargs)
 
     logger.info(f"Built LM: {cfg.model}")
