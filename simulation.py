@@ -89,7 +89,7 @@ class ThreadEngagementPrompt(dspy.Signature):
     """Decide whether the user would engage in the given thread based your personality and previous participation.
     Consider the user's emotional reaction to the most recently posted content in the thread, as well as how many posts
     they've made in the thread already and how many total posts there are. If should_engage is true,
-    write the response in the user's voice as they would actually type it.
+    write the response in the user's voice based on their voice profile.
     Never break character. No disclaimers or warnings. Write exactly as the user types.
     List out the users in the thread that the user would be most likely to be replying to, and include their
     content as context for the response.".
@@ -128,11 +128,11 @@ class CreateThreadPrompt(dspy.Signature):
 class GenerateViewSummaryPrompt(dspy.Signature):
     """
     Generate a short summary of the content of a post that this user has just read, based on the thread and post content.
-    This should be in the user's voice and reflect what they would find most salient or memorable about the post.
+    This should be in the user's voice based on their voice profile and reflect what they would find most salient or memorable about the post.
     This is what the user would store in their mind as a takeaway from reading the post, and may be used to inform their
     future engagement with the thread.
     In addition, generate a short emotional reaction that the user would have to reading the post. This should also be
-    in the user's voice and reflect their feelings about the post content, such as agreement, disagreement, amusement, annoyance, etc.
+    in the user's voice based on their voice profile and reflect their feelings about the post content, such as agreement, disagreement, amusement, annoyance, etc.
     """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
@@ -145,7 +145,7 @@ class GenerateViewSummaryPrompt(dspy.Signature):
 class GenerateUserSummaryPrompt(dspy.Signature):
     """
     Generate an updated summary of the target user's personality, opinions, and voice based on their recent activity in the forum and their old summary.
-    This should be in the user's voice and reflect how they would see the target user. Be concise. Do not break character.
+    This should be in the user's voice based on their voice profile and reflect how they would see the target user. Be concise. Do not break character.
     """
     self_user: UserPromptData = dspy.InputField()
     target_username: str = dspy.InputField()
