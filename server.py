@@ -482,28 +482,26 @@ def _ctx(request: Request, **kw) -> Dict[str, Any]:
 
 @app.get("/", response_class=HTMLResponse)
 def web_home(request: Request):
-    return templates.TemplateResponse("home.html", _ctx(request, sims=_sims_view()))
+    return _render(request, "home.html", sims=_sims_view())
 
 
 @app.get("/sim/{sim_id}", response_class=HTMLResponse)
 def web_simulation(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     forum = sim.forum
-    return templates.TemplateResponse(
+    return _render(
+        request,
         "simulation.html",
-        _ctx(
-            request,
-            sim_id=sim_id,
-            status=_sim_status(sim_id),
-            forum={
-                "name": forum.name,
-                "topic": forum.topic,
-                "created_display": forum.created_date.strftime("%b %d, %Y"),
-            },
-            threads=_threads_view(sim),
-            stimuli=_stimuli_view(sim),
-            documents=_documents_view(sim),
-        ),
+        sim_id=sim_id,
+        status=_sim_status(sim_id),
+        forum={
+            "name": forum.name,
+            "topic": forum.topic,
+            "created_display": forum.created_date.strftime("%b %d, %Y"),
+        },
+        threads=_threads_view(sim),
+        stimuli=_stimuli_view(sim),
+        documents=_documents_view(sim),
     )
 
 
@@ -528,36 +526,32 @@ def web_thread(request: Request, sim_id: str, thread_id: str):
         for p in thread_posts
     ]
 
-    return templates.TemplateResponse(
+    return _render(
+        request,
         "thread.html",
-        _ctx(
-            request,
-            sim_id=sim_id,
-            status=_sim_status(sim_id),
-            forum={"name": forum.name},
-            thread={
-                "title": thread.title,
-                "author": thread.author.username,
-                "summary": thread.summary,
-                "created_display": _display_date(forum, thread.created_tick),
-            },
-            posts=posts,
-        ),
+        sim_id=sim_id,
+        status=_sim_status(sim_id),
+        forum={"name": forum.name},
+        thread={
+            "title": thread.title,
+            "author": thread.author.username,
+            "summary": thread.summary,
+            "created_display": _display_date(forum, thread.created_tick),
+        },
+        posts=posts,
     )
 
 
 @app.get("/sim/{sim_id}/users", response_class=HTMLResponse)
 def web_users(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
-    return templates.TemplateResponse(
+    return _render(
+        request,
         "users.html",
-        _ctx(
-            request,
-            sim_id=sim_id,
-            status=_sim_status(sim_id),
-            forum={"name": sim.forum.name},
-            users=_users_view(sim),
-        ),
+        sim_id=sim_id,
+        status=_sim_status(sim_id),
+        forum={"name": sim.forum.name},
+        users=_users_view(sim),
     )
 
 
@@ -566,25 +560,23 @@ def web_ai_settings(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     cfg = sim.model_config
     models = CLOUD_MODELS + get_installed_ollama_models()
-    return templates.TemplateResponse(
+    return _render(
+        request,
         "ai_settings.html",
-        _ctx(
-            request,
-            sim_id=sim_id,
-            status=_sim_status(sim_id),
-            forum={"name": sim.forum.name},
-            models=models,
-            cfg={
-                "model": cfg.model,
-                "temperature": cfg.temperature,
-                "top_p": cfg.top_p,
-                "top_k": cfg.top_k,
-                "frequency_penalty": cfg.frequency_penalty,
-                "presence_penalty": cfg.presence_penalty,
-                "thinking": cfg.thinking,
-                "thread_creation_chance": sim.thread_creation_chance,
-            },
-        ),
+        sim_id=sim_id,
+        status=_sim_status(sim_id),
+        forum={"name": sim.forum.name},
+        models=models,
+        cfg={
+            "model": cfg.model,
+            "temperature": cfg.temperature,
+            "top_p": cfg.top_p,
+            "top_k": cfg.top_k,
+            "frequency_penalty": cfg.frequency_penalty,
+            "presence_penalty": cfg.presence_penalty,
+            "thinking": cfg.thinking,
+            "thread_creation_chance": sim.thread_creation_chance,
+        },
     )
 
 
@@ -593,7 +585,7 @@ def web_ai_settings(request: Request, sim_id: str):
 # ===========================================================================
 
 def _render(request: Request, name: str, **kw) -> HTMLResponse:
-    return templates.TemplateResponse(name, _ctx(request, **kw))
+    return templates.TemplateResponse(request, name, _ctx(request, **kw))
 
 
 # --- Home: simulation list, create, start/stop -----------------------------
