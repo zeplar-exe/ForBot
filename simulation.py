@@ -224,7 +224,7 @@ class Simulation:
     def _generate_user(self):
         mlflow.update_current_trace(
             metadata={
-                "mlflow.trace.session": f"forum-{self.forum.name}",
+                "mlflow.trace.session": f"forum-{self.forum.name}-{self._time}",
             }
         )
         
@@ -308,7 +308,6 @@ class Simulation:
         ).summary
         self._logger.debug(f"Updated summary for thread '{thread.title}'")
 
-    @mlflow.trace
     def advance_one_hour(self) -> tuple[List[Thread], List[Post]]:
         self._time += 1
         hour_threads: List[Thread] = []
@@ -318,13 +317,6 @@ class Simulation:
 
         for i, user in enumerate(self.users):
             if user.active_hours[0] <= self._time % 24 < user.active_hours[1]:
-                mlflow.update_current_trace(
-                    metadata={
-                        "mlflow.trace.session": f"forum-{self.forum.name}",
-                        "mlflow.trace.user": f"{user.username}",
-                    }
-                )
-                
                 added_threads = []
                 added_posts = []
                 
@@ -369,9 +361,17 @@ class Simulation:
         with self._lm_ctx:
             return self._simulate_user_activity(user)
 
+    @mlflow.trace
     def _simulate_user_activity(self, user: User) -> tuple[List[Thread], List[Post]]:
         if random.random() > user.forum_dedication:
             return [], []
+        
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.trace.session": f"forum-{self.forum.name}-{self._time}",
+                "mlflow.trace.user": f"{user.username}",
+            }
+        )
 
         unseen_posts = [post for post in self.posts if post.id not in user.viewed_posts and post.author != user]
 
