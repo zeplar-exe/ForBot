@@ -1,6 +1,5 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from data import *
-from dataclasses import asdict as dataclass_asdict
 from datetime import datetime
 import json
 
@@ -32,21 +31,78 @@ def sim_to_dict(sim, sim_id: str) -> Dict[str, Any]:
     }
 
     for u in sim.users:
-        data["users"].append(dataclass_asdict(u))
+        data["users"].append({
+            "id": u.id,
+            "username": u.username,
+            "profile_picture": u.profile_picture,
+            "signature": u.signature,
+            "personality": u.personality,
+            "forum_dedication": u.forum_dedication,
+            "active_hours": u.active_hours,
+            "voice_profile": u.voice_profile,
+            "viewed_posts": {
+                pid: {
+                    "post_id": vp.post_id,
+                    "view_date": vp.view_date,
+                    "summary": vp.summary,
+                }
+                for pid, vp in u.viewed_posts.items()
+            },
+            "user_summaries": {
+                uid: {
+                    "user_id": us.user_id,
+                    "update_tick": us.update_tick,
+                    "last_updated": us.last_updated,
+                    "summary": us.summary,
+                }
+                for uid, us in u.user_summaries.items()
+            },
+        })
 
     for t in sim.threads:
-        data["threads"].append(dataclass_asdict(t))
+        data["threads"].append({
+            "id": t.id,
+            "title": t.title,
+            "author_id": t.author.id,
+            "created_tick": t.created_tick,
+            "summary": t.summary,
+        })
 
     for p in sim.posts:
-        data["posts"].append(dataclass_asdict(p))
+        data["posts"].append({
+            "id": p.id,
+            "thread_id": p.thread.id,
+            "author_id": p.author.id,
+            "content": p.content,
+            "reply_to": p.reply_to,
+            "created_tick": p.created_tick,
+        })
 
     for s in sim.stimuli:
-        data["stimuli"].append(dataclass_asdict(s))
+        data["stimuli"].append({
+            "id": s.id,
+            "text": s.text,
+            "created_tick": s.created_tick,
+        })
 
     for d in sim.documents.values():
-        data["documents"].append(dataclass_asdict(d))
+        data["documents"].append({
+            "id": d.id,
+            "title": d.title,
+            "text": d.text,
+            "source": d.source,
+            "summary": d.summary,
+        })
 
     if sim.model_config is not None:
-        data["model_config"] = dataclass_asdict(sim.model_config)
+        data["model_config"] = {
+            "model": sim.model_config.model,
+            "temperature": sim.model_config.temperature,
+            "top_p": sim.model_config.top_p,
+            "top_k": sim.model_config.top_k,
+            "frequency_penalty": sim.model_config.frequency_penalty,
+            "presence_penalty": sim.model_config.presence_penalty,
+            "thinking": sim.model_config.thinking,
+        }
 
     return data

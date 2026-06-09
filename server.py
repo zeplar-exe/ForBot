@@ -251,6 +251,22 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
             voice_profile=u.get("voice_profile", ""),
             id=str(u.get("id")),
         )
+
+        for pid, vp in u.get("viewed_posts", {}).items():
+            user.viewed_posts[pid] = ViewedPost(
+                post_id=vp.get("post_id", pid),
+                view_date=int(vp.get("view_date", 0)),
+                summary=vp.get("summary"),
+            )
+
+        for uid, us in u.get("user_summaries", {}).items():
+            user.user_summaries[uid] = UserSummary(
+                user_id=us.get("user_id", uid),
+                update_tick=int(us.get("update_tick", 0)),
+                last_updated=int(us.get("last_updated", 0)),
+                summary=us.get("summary", ""),
+            )
+
         sim.users.append(user)
         users_by_id[user.id] = user
 

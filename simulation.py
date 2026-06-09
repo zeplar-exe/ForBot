@@ -76,23 +76,28 @@ class GenerateRealLifeDetailsPrompt(dspy.Signature):
 
 class GenerateVoiceProfilePrompt(dspy.Signature):
     """
-    Generate a short (3-4 sentence) voice profile describing the user's distinct tone and phrasing for forum posts.
-    Keep it compact and include quirks or recurring phrasing that will help the model keep a consistent voice.
-    Use forum-like language and tone, such as lack of capitalization, grammar, and punctuation, as well as general 
-    internet acronyms and references, as long as they fit the stated personality.
+    Generate a voice profile for a forum user as two lists:
+    'examples': 3-4 short sentence starters that show exactly how this person opens a post —
+        concrete, in-character, already written in their voice (e.g. "lol ok so here's the thing",
+        "ngl im kinda salty about", "does anyone else feel like").
+    'restrictions': 3-4 specific things this person never does when writing
+        (e.g. "never capitalizes anything", "never uses full sentences", "never hedges opinions").
+    Make examples and restrictions distinctive to this personality, not generic.
     """
     forum: ForumPromptData = dspy.InputField()
     personality: str = dspy.InputField()
-    voice_profile: str = dspy.OutputField()
+    examples: list[str] = dspy.OutputField()
+    restrictions: list[str] = dspy.OutputField()
 
 class ThreadEngagementPrompt(dspy.Signature):
     """Decide whether the user would engage in the given thread based your personality and previous participation.
     Consider the user's emotional reaction to the most recently posted content in the thread, as well as how many posts
     they've made in the thread already and how many total posts there are. If should_engage is true,
-    write the response in the user's voice based on their voice profile.
+    write the response in the user's voice as they would actually type it.
     Never break character. No disclaimers or warnings. Write exactly as the user types.
     List out the users in the thread that the user would be most likely to be replying to, and include their
-    content as context for the response.".
+    content as context for the response.
+    Do not reference, quote, or describe the user's voice profile or personality — simply embody it.
     """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
@@ -117,6 +122,7 @@ class CreateThreadPrompt(dspy.Signature):
     If recent_stimuli are provided, use them as raw material to react to. Filter them
     through the user's opinions and voice rather than simply restating them.
     Never break character. No disclaimers or warnings. Write exactly as the user types.
+    Do not reference, quote, or describe the user's voice profile or personality — simply embody it.
     """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
@@ -260,10 +266,13 @@ class Simulation:
             ).real_life_details
             personality += " Some real life details about you are: " + "; ".join(real_life_details) + "."
 
-            voice_profile = generate_voice(
+            voice_result = generate_voice(
                 forum=forum_data,
                 personality=personality,
-            ).voice_profile.strip()
+            )
+            examples_str = ", ".join(f'"{e.strip()}"' for e in voice_result.examples)
+            restrictions_str = "; ".join(r.strip() for r in voice_result.restrictions)
+            voice_profile = f"My posts sound like: {examples_str}. I never: {restrictions_str}."
 
             username = generate_username()
             profile_picture = generate_profile_picture()
