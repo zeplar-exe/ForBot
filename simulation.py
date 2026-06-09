@@ -68,7 +68,7 @@ class GenerateOpinionProfilePrompt(dspy.Signature):
 
 class GenerateRealLifeDetailsPrompt(dspy.Signature):
     """
-    Generate a set of real life details about a user with the given personality, such as occupation, hobbies, 
+    Generate a set of real life details about a user with the given personality such as occupation, hobbies, 
     and other interests.
     """
     personality: str = dspy.InputField()
@@ -79,7 +79,7 @@ class GenerateVoiceProfilePrompt(dspy.Signature):
     Generate a short (3-4 sentence) voice profile describing the user's distinct tone and phrasing for forum posts.
     Keep it compact and include quirks or recurring phrasing that will help the model keep a consistent voice.
     Use forum-like language and tone, such as lack of capitalization, grammar, and punctuation, as well as general 
-    internet acronyms and references, so long as they fit the stated personality.
+    internet acronyms and references, as long as they fit the stated personality.
     """
     forum: ForumPromptData = dspy.InputField()
     personality: str = dspy.InputField()
@@ -419,7 +419,7 @@ class Simulation:
             emotional_reaction = ""
 
             for post in thread_posts:
-                generate_view_summary = dspy.ChainOfThought(GenerateViewSummaryPrompt)
+                generate_view_summary = dspy.Predict(GenerateViewSummaryPrompt)
                 view_summary = generate_view_summary(
                     user=user_data,
                     forum=forum_data,
@@ -450,7 +450,7 @@ class Simulation:
                 user_summary.update_tick += 1
 
                 if user_summary.update_tick % self.user_summary_update_interval == 0:
-                    user_summary_prompt = dspy.ChainOfThought(GenerateUserSummaryPrompt)
+                    user_summary_prompt = dspy.Predict(GenerateUserSummaryPrompt)
                     new_summary = user_summary_prompt(
                         self_user=user_data,
                         target_username=post.author.username,
