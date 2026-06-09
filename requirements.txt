@@ -127,7 +127,7 @@ pybase64==1.4.3
 pycparser==2.23
 pydantic==2.13.4
 pydantic-settings==2.14.1
-pydantic_core==2.46.4
+# pydantic_core is installed automatically by pydantic at its required exact version
 Pygments==2.20.0
 pyparsing==3.2.5
 PyPika==0.48.9

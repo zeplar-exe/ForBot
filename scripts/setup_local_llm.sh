@@ -28,8 +28,7 @@ echo "=== ForBot Local LLM Setup ==="
 
 # 0. Python deps
 echo "[0/5] Installing Python dependencies..."
-pip install -U "pydantic>=2"
-pip install -r "$(dirname "$0")/../backend/requirements.txt"
+pip install -r "$(dirname "$0")/../requirements.txt"
 
 # 1. Download GGUF to a temp dir (deleted after import)
 echo "[1/5] Downloading ${MODEL_FILE} from ${MODEL_REPO}..."
