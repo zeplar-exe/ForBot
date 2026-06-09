@@ -97,18 +97,6 @@ def get_installed_ollama_models() -> List[str]:
     except Exception:
         return []
 
-
-CLOUD_MODELS = [
-    "openai/gpt-4o",
-    "openai/gpt-4o-mini",
-    "openai/o1",
-    "openai/o3-mini",
-    "anthropic/claude-opus-4-7",
-    "anthropic/claude-sonnet-4-6",
-    "anthropic/claude-haiku-4-5",
-]
-
-
 def build_lm(cfg: AIConfig) -> dspy.LM:
     is_anthropic = cfg.model.startswith("anthropic/")
 
@@ -227,7 +215,7 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
     mc = data.get("model_config")
     if isinstance(mc, dict):
         sim.model_config = AIConfig(
-            model=str(mc.get("model", "openai/gpt-4o-mini")),
+            model=str(mc.get("model", "ollama/qwen2.5-abliterated-q4")),
             temperature=float(mc.get("temperature", 0.7)),
             top_p=float(mc.get("top_p", 0.9)),
             top_k=int(mc.get("top_k", 40)),
@@ -380,7 +368,7 @@ def get_sim_or_404_running(sim_id: str, require_running: bool = False) -> Simula
 @app.get("/models")
 def api_list_models():
     ollama_models = get_installed_ollama_models()
-    return {"models": CLOUD_MODELS + ollama_models}
+    return {"models": ollama_models}
 
 
 # ===========================================================================
@@ -559,7 +547,7 @@ def web_users(request: Request, sim_id: str):
 def web_ai_settings(request: Request, sim_id: str):
     sim = get_sim_or_404(sim_id)
     cfg = sim.model_config
-    models = CLOUD_MODELS + get_installed_ollama_models()
+    models = get_installed_ollama_models()
     return _render(
         request,
         "ai_settings.html",
