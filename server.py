@@ -43,7 +43,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7,
              stop=["### User:", "### Human:", "\nHuman:", "\nUser:"])
-embed = dspy.Embedder("nomic-embed-text", api_base=OLLAMA_API_BASE)
+embed = dspy.Embedder("ollama/nomic-embed-text", api_base=OLLAMA_API_BASE)
 dspy.configure(lm=lm, embedder=embed)
 dspy.enable_logging()
 
