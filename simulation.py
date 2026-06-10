@@ -86,28 +86,54 @@ class GenerateVoiceProfilePrompt(dspy.Signature):
     examples: list[str] = dspy.OutputField()
     restrictions: list[str] = dspy.OutputField()
 
-class ThreadEngagementPrompt(dspy.Signature):
-    """Decide whether the user would engage in the given thread based your personality and previous participation.
-    Consider the user's emotional reaction to the most recently posted content in the thread, as well as how many posts
-    they've made in the thread already and how many total posts there are. If should_engage is true,
-    write the response in the user's voice as they would actually type it.
-    Never break character. No disclaimers or warnings. Write exactly as the user types.
-    List out the users in the thread that the user would be most likely to be replying to, and include their
-    content as context for the response.
-    Do not reference, quote, or describe the user's voice profile or personality — simply embody it.
+class ThreadReasoningPrompt(dspy.Signature):
+    """
+    Think through how this user would react to this thread. Output pure reasoning — no post text.
+    Be exhaustive: the write step will only see your outputs, not the thread itself.
+
+    should_engage: whether this user would bother responding at all given their dedication,
+        how many times they've already posted, and how much the thread interests them.
+    reply_to: exact username of the person they are directly addressing, or empty string
+        if they are speaking to the thread generally.
+    emotional_reaction: specific, visceral reaction — not just a label ('annoyed') but
+        what exactly triggered it and why this user in particular would feel that way.
+    stance: full position — which specific claims in the thread they agree or disagree with,
+        which arguments they find compelling or weak, and why their personality leads them there.
+    key_point: detailed brief for the post — the argument they will make, any concrete example
+        or reference they would use, the emotional register (rant, deadpan, enthusiastic, etc.),
+        and how they want the reader to feel after reading it. Two to four sentences.
     """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
-    thread: str = dspy.InputField()
+    thread_title: str = dspy.InputField()
     thread_summary: str = dspy.InputField()
     thread_post_history: str = dspy.InputField()
     relevant_users: list[dict] = dspy.InputField()
     relevant_documents: str = dspy.InputField()
     own_posts_count: int = dspy.InputField()
     total_posts_count: int = dspy.InputField()
-    emotional_reaction: str = dspy.InputField()
     should_engage: bool = dspy.OutputField()
     reply_to: str = dspy.OutputField()
+    emotional_reaction: str = dspy.OutputField()
+    stance: str = dspy.OutputField()
+    key_point: str = dspy.OutputField()
+
+class WritePostPrompt(dspy.Signature):
+    """
+    Write a forum post as this user. You have been given their reasoning: the stance they hold,
+    who they are replying to, and the single key point they want to make. Write the actual post
+    in the user's voice — exactly as they would type it. One point, one voice, done.
+    Never break character. No disclaimers or warnings.
+    Do not quote, reference, or describe the voice profile — simply embody it.
+    Do not pad with extra topics or opinions beyond the key point.
+    """
+    user: UserPromptData = dspy.InputField()
+    forum: ForumPromptData = dspy.InputField()
+    thread_title: str = dspy.InputField()
+    emotional_reaction: str = dspy.InputField()
+    stance: str = dspy.InputField()
+    key_point: str = dspy.InputField()
+    reply_to_username: str = dspy.InputField()
     response: str = dspy.OutputField()
 
 class CreateThreadPrompt(dspy.Signature):
@@ -127,19 +153,6 @@ class CreateThreadPrompt(dspy.Signature):
     recent_stimuli: list[str] = dspy.InputField()
     title: str = dspy.OutputField()
     body: str = dspy.OutputField()
-
-class GenerateEmotionalReactionPrompt(dspy.Signature):
-    """
-    Generate a short emotional reaction (one or two sentences) that the user would have
-    after reading these recent posts. Write in the user's voice — their honest feelings
-    about the content: agreement, disagreement, amusement, annoyance, curiosity, etc.
-    Do not reference or quote the voice profile. Simply react.
-    """
-    user: UserPromptData = dspy.InputField()
-    forum: ForumPromptData = dspy.InputField()
-    thread_title: str = dspy.InputField()
-    recent_posts: str = dspy.InputField()
-    emotional_reaction: str = dspy.OutputField()
 
 class GenerateUserSummaryPrompt(dspy.Signature):
     """
@@ -404,9 +417,9 @@ class Simulation:
 
         # Hoist DSPy module instantiation outside the per-thread loop
         decide_view_thread = dspy.Predict(DecideViewThreadPrompt)
-        generate_reaction = dspy.Predict(GenerateEmotionalReactionPrompt)
+        thread_reasoning = dspy.Predict(ThreadReasoningPrompt)
+        write_post = dspy.Predict(WritePostPrompt)
         generate_user_summary = dspy.Predict(GenerateUserSummaryPrompt)
-        engage_prompt = dspy.Predict(ThreadEngagementPrompt)
 
         for thread_id, thread_posts in threads.items():
             thread = thread_posts[0].thread
@@ -460,21 +473,11 @@ class Simulation:
                     ).new_summary
                     user_summary.last_updated = self._time
 
-            # Build engagement context from raw content (no LLM)
             all_thread_posts = self.get_posts_in_thread(thread)
             previous_posts = all_thread_posts[-10:]
             thread_post_history = '\n'.join(
                 f"{p.author.username}: {p.content[:300]}" for p in previous_posts
             )
-            recent_post_text = '\n'.join(
-                f"{p.author.username}: {p.content[:300]}" for p in thread_posts[-3:]
-            )
-            emotional_reaction = generate_reaction(
-                user=user_data,
-                forum=forum_data,
-                thread_title=thread.title,
-                recent_posts=recent_post_text,
-            ).emotional_reaction
 
             thread_post_count = len(all_thread_posts)
             own_post_count = len(self.get_user_posts_in_thread(user, thread))
@@ -490,27 +493,36 @@ class Simulation:
             if thread.summary and self._document_embeddings is not None:
                 relevant_documents = "\n".join(self._document_embeddings(thread.summary))
 
-            engagement = engage_prompt(
+            reasoning = thread_reasoning(
                 user=user_data,
                 forum=forum_data,
-                thread=thread.title,
+                thread_title=thread.title,
                 thread_summary=thread.summary or "",
                 thread_post_history=thread_post_history,
                 relevant_users=relevant_users,
                 relevant_documents=relevant_documents,
-                emotional_reaction=emotional_reaction,
                 own_posts_count=own_post_count,
-                total_posts_count=thread_post_count
+                total_posts_count=thread_post_count,
             )
 
-            if not engagement.should_engage:
+            if not reasoning.should_engage:
                 continue
+
+            post_content = write_post(
+                user=user_data,
+                forum=forum_data,
+                thread_title=thread.title,
+                emotional_reaction=reasoning.emotional_reaction,
+                stance=reasoning.stance,
+                key_point=reasoning.key_point,
+                reply_to_username=reasoning.reply_to,
+            ).response
 
             added_posts.append(Post(
                 thread=thread,
                 author=user,
-                content=engagement.response.strip(),
-                reply_to=engagement.reply_to.strip() if engagement.reply_to else "",
+                content=post_content.strip(),
+                reply_to=reasoning.reply_to.strip() if reasoning.reply_to else "",
                 created_tick=self._time
             ))
 
