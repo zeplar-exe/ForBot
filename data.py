@@ -52,7 +52,7 @@ class Forum:
 class ViewedPost:
     post_id: PostId
     view_date: int
-    author_username: str
+    author_username: str = ""
     summary: Optional[str] = None
 
 
