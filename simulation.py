@@ -1,5 +1,6 @@
 from collections import defaultdict
 from contextlib import nullcontext
+from concurrent.futures import ThreadPoolExecutor
 
 import mlflow
 
@@ -25,10 +26,6 @@ class ForumPromptData:
     name: str
     topic: str
 
-@dataclass
-class PostPromptData:
-    author: str
-    thread_title: str
 
 class GenerateArchetypePrompt(dspy.Signature):
     """
@@ -104,7 +101,7 @@ class ThreadEngagementPrompt(dspy.Signature):
     thread: str = dspy.InputField()
     thread_summary: str = dspy.InputField()
     thread_post_history: str = dspy.InputField()
-    relevant_users: list[UserSummary] = dspy.InputField()
+    relevant_users: list[dict] = dspy.InputField()
     relevant_documents: str = dspy.InputField()
     own_posts_count: int = dspy.InputField()
     total_posts_count: int = dspy.InputField()
@@ -131,22 +128,18 @@ class CreateThreadPrompt(dspy.Signature):
     title: str = dspy.OutputField()
     body: str = dspy.OutputField()
 
-class GenerateViewSummaryPrompt(dspy.Signature):
+class GenerateEmotionalReactionPrompt(dspy.Signature):
     """
-    Generate a short summary of the content of a post that this user has just read, based on the thread and post content.
-    This should be in the user's voice based on their voice profile and reflect what they would find most salient or memorable about the post.
-    This is what the user would store in their mind as a takeaway from reading the post, and may be used to inform their
-    future engagement with the thread.
-    In addition, generate a short emotional reaction that the user would have to reading the post. This should also be
-    in the user's voice based on their voice profile and reflect their feelings about the post content, such as agreement, disagreement, amusement, annoyance, etc.
+    Generate a short emotional reaction (one or two sentences) that the user would have
+    after reading these recent posts. Write in the user's voice — their honest feelings
+    about the content: agreement, disagreement, amusement, annoyance, curiosity, etc.
+    Do not reference or quote the voice profile. Simply react.
     """
     user: UserPromptData = dspy.InputField()
     forum: ForumPromptData = dspy.InputField()
     thread_title: str = dspy.InputField()
-    post_author: Optional[UserSummary] = dspy.InputField()
-    post_content: str = dspy.InputField()
+    recent_posts: str = dspy.InputField()
     emotional_reaction: str = dspy.OutputField()
-    view_summary: str = dspy.OutputField()
 
 class GenerateUserSummaryPrompt(dspy.Signature):
     """
@@ -203,18 +196,32 @@ class Simulation:
         self.documents: dict[str, SimulationDocument] = {}
         self._lm: dspy.LM = None  # set by server via reconfigure_dspy_with_config
         self._document_embeddings: dspy.Embeddings = None  # set by server via reconfigure_dspy_with_config
+        self._posts_by_thread: dict[str, list[Post]] = defaultdict(list)
+        self._posts_by_user: dict[str, list[Post]] = defaultdict(list)
+
+    def _add_post(self, post: Post):
+        self.posts.append(post)
+        self._posts_by_thread[post.thread.id].append(post)
+        self._posts_by_user[post.author.id].append(post)
+
+    def _rebuild_index(self):
+        self._posts_by_thread = defaultdict(list)
+        self._posts_by_user = defaultdict(list)
+        for post in self.posts:
+            self._posts_by_thread[post.thread.id].append(post)
+            self._posts_by_user[post.author.id].append(post)
 
     def get_user_threads(self, user: User) -> List[Thread]:
         return [thread for thread in self.threads if thread.author == user]
 
     def get_user_posts(self, user: User) -> List[Post]:
-        return [post for post in self.posts if post.author == user]
+        return self._posts_by_user[user.id]
 
     def get_user_posts_in_thread(self, user: User, thread: Thread) -> List[Post]:
-        return [post for post in self.posts if post.author == user and post.thread == thread]
+        return [p for p in self._posts_by_thread[thread.id] if p.author == user]
 
     def get_posts_in_thread(self, thread: Thread) -> List[Post]:
-        return [post for post in self.posts if post.thread == thread]
+        return self._posts_by_thread[thread.id]
 
     @property
     def _lm_ctx(self):
@@ -306,7 +313,7 @@ class Simulation:
 
     def _update_thread_summary(self, thread: Thread) -> None:
         recent_posts = self.get_posts_in_thread(thread)[-10:]
-        recent_post_strs = [f"{p.author.username}: {p.content}" for p in recent_posts]
+        recent_post_strs = [f"{p.author.username}: {p.content[:300]}" for p in recent_posts]
         generate_summary = dspy.Predict(GenerateThreadSummaryPrompt)
         thread.summary = generate_summary(
             forum=ForumPromptData(name=self.forum.name, topic=self.forum.topic_summary),
@@ -317,39 +324,44 @@ class Simulation:
         ).summary
         self._logger.debug(f"Updated summary for thread '{thread.title}'")
 
+    @mlflow.trace
     def advance_one_hour(self) -> tuple[List[Thread], List[Post]]:
         self._time += 1
         hour_threads: List[Thread] = []
         hour_posts: List[Post] = []
-
         threads_to_summarize: dict[str, Thread] = {}
 
-        for i, user in enumerate(self.users):
-            if user.active_hours[0] <= self._time % 24 < user.active_hours[1]:
-                added_threads = []
-                added_posts = []
-                
+        active_users = [
+            u for u in self.users
+            if u.active_hours[0] <= self._time % 24 < u.active_hours[1]
+        ]
+
+        posts_snapshot = list(self.posts)
+
+        def process_user(user: User) -> tuple[List[Thread], List[Post]]:
+            with self._lm_ctx:
                 for attempt in range(3):
                     try:
-                        added_threads, added_posts = self.simulate_user_activity(user)
-                        break
+                        return self._simulate_user_activity(user, posts_snapshot)
                     except Exception as e:
                         self._logger.warning(f"User {user.username} attempt {attempt + 1}/3 failed: {e}")
                         if attempt == 2:
                             self._logger.error(f"Skipping user {user.username} after 3 failed attempts")
-                            added_threads, added_posts = [], []
+                            return [], []
 
-                hour_threads.extend(added_threads)
-                hour_posts.extend(added_posts)
-                self.threads.extend(added_threads)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            all_results = list(executor.map(process_user, active_users))
 
-                for post in added_posts:
-                    self.posts.append(post)
-                    count = len(self.get_posts_in_thread(post.thread))
-                    if count % self.thread_summary_update_interval == 0:
-                        threads_to_summarize[post.thread.id] = post.thread
-
-                self._logger.debug(f"Simulated activity for user {user.username} [{i}/{len(self.users)}] ({len(added_threads)} new threads, {len(added_posts)} new posts)")
+        for (added_threads, added_posts), user in zip(all_results, active_users):
+            hour_threads.extend(added_threads)
+            hour_posts.extend(added_posts)
+            self.threads.extend(added_threads)
+            for post in added_posts:
+                self._add_post(post)
+                count = len(self.get_posts_in_thread(post.thread))
+                if count % self.thread_summary_update_interval == 0:
+                    threads_to_summarize[post.thread.id] = post.thread
+            self._logger.debug(f"Simulated {user.username}: +{len(added_threads)} threads, +{len(added_posts)} posts")
 
         if threads_to_summarize:
             with self._lm_ctx:
@@ -366,23 +378,9 @@ class Simulation:
         self._logger.info(f"Simulated hour {self._time % 24} (tick {self._time}) — +{len(hour_threads)} threads, +{len(hour_posts)} posts, {len(threads_to_summarize)} summaries updated")
         return hour_threads, hour_posts
 
-    def simulate_user_activity(self, user: User) -> tuple[List[Thread], List[Post]]:
-        with self._lm_ctx:
-            return self._simulate_user_activity(user)
-
-    @mlflow.trace
-    def _simulate_user_activity(self, user: User) -> tuple[List[Thread], List[Post]]:
+    def _simulate_user_activity(self, user: User, posts: List[Post]) -> tuple[List[Thread], List[Post]]:
         if random.random() > user.forum_dedication:
             return [], []
-        
-        mlflow.update_current_trace(
-            metadata={
-                "mlflow.trace.session": f"forum-{self.forum.name}-{self._time}",
-                "mlflow.trace.user": f"{user.username}",
-            }
-        )
-
-        unseen_posts = [post for post in self.posts if post.id not in user.viewed_posts and post.author != user]
 
         added_threads = []
         added_posts = []
@@ -398,15 +396,21 @@ class Simulation:
             voice_profile=user.voice_profile
         )
 
-        threads = defaultdict(list)
+        # Single-pass unseen filter + grouping
+        threads: dict[str, list[Post]] = defaultdict(list)
+        for post in posts:
+            if post.id not in user.viewed_posts and post.author != user:
+                threads[post.thread.id].append(post)
 
-        for post in unseen_posts:
-            threads[post.thread.id].append(post)
+        # Hoist DSPy module instantiation outside the per-thread loop
+        decide_view_thread = dspy.Predict(DecideViewThreadPrompt)
+        generate_reaction = dspy.Predict(GenerateEmotionalReactionPrompt)
+        generate_user_summary = dspy.Predict(GenerateUserSummaryPrompt)
+        engage_prompt = dspy.Predict(ThreadEngagementPrompt)
 
         for thread_id, thread_posts in threads.items():
             thread = thread_posts[0].thread
-            
-            decide_view_thread = dspy.Predict(DecideViewThreadPrompt)
+
             should_view = decide_view_thread(
                 user=user_data,
                 forum=forum_data,
@@ -414,36 +418,24 @@ class Simulation:
                 thread_body=thread_posts[0].content,
                 thread_author_username=thread.author.username,
             ).should_view
-            
+
             user.viewed_posts[thread.id] = ViewedPost(
                 post_id=thread_posts[0].id,
                 view_date=self._time,
                 author_username=thread.author.username,
                 summary=None
             )
-            
+
             if not should_view:
                 continue
-            
-            emotional_reaction = ""
 
+            # Mark posts as viewed and track user summary update triggers
             for post in thread_posts:
-                generate_view_summary = dspy.Predict(GenerateViewSummaryPrompt)
-                view_summary = generate_view_summary(
-                    user=user_data,
-                    forum=forum_data,
-                    thread_title=post.thread.title,
-                    post_author=user.user_summaries.get(post.author.id),
-                    post_content=post.content
-                )
-                summary = view_summary.view_summary
-                emotional_reaction += f"{view_summary.emotional_reaction.strip()}\n"
-
                 user.viewed_posts[post.id] = ViewedPost(
                     post_id=post.id,
                     view_date=self._time,
                     author_username=post.author.username,
-                    summary=summary
+                    summary=None
                 )
 
                 user_summary = user.user_summaries.get(post.author.id)
@@ -459,39 +451,51 @@ class Simulation:
                 user_summary.update_tick += 1
 
                 if user_summary.update_tick % self.user_summary_update_interval == 0:
-                    user_summary_prompt = dspy.Predict(GenerateUserSummaryPrompt)
-                    new_summary = user_summary_prompt(
+                    user_summary.summary = generate_user_summary(
                         self_user=user_data,
                         target_username=post.author.username,
                         forum=forum_data,
                         target_recent_posts=[{p.id: p.content} for p in self.get_user_posts(post.author)[:10]],
                         old_summary=user_summary.summary
                     ).new_summary
-
-                    user_summary.summary = new_summary
                     user_summary.last_updated = self._time
 
-            thread_post_count = len(self.get_posts_in_thread(thread))
+            # Build engagement context from raw content (no LLM)
+            all_thread_posts = self.get_posts_in_thread(thread)
+            previous_posts = all_thread_posts[-10:]
+            thread_post_history = '\n'.join(
+                f"{p.author.username}: {p.content[:300]}" for p in previous_posts
+            )
+            recent_post_text = '\n'.join(
+                f"{p.author.username}: {p.content[:300]}" for p in thread_posts[-3:]
+            )
+            emotional_reaction = generate_reaction(
+                user=user_data,
+                forum=forum_data,
+                thread_title=thread.title,
+                recent_posts=recent_post_text,
+            ).emotional_reaction
+
+            thread_post_count = len(all_thread_posts)
             own_post_count = len(self.get_user_posts_in_thread(user, thread))
 
-            previous_posts = self.get_posts_in_thread(thread)[-30:] if len(thread_posts) >= 30 else thread_posts
-            previous_post_summaries = [(post, user.viewed_posts[post.id].summary) for post in previous_posts if post.id in user.viewed_posts]
-            unique_previous_users = set(post.author.id for post in previous_posts)
-            relevant_users = [user.user_summaries[id] for id in unique_previous_users if id in user.user_summaries]
-            relevant_users = [{"summarized_user_username": u.summarized_user_username, "summary": u.summary} for u in relevant_users]
-            relevant_documents = []
-            
-            if thread.summary and self._document_embeddings is not None:
-                relevant_documents = self._document_embeddings(thread.summary)
-                relevant_documents = "\n".join(relevant_documents)
+            unique_previous_users = set(p.author.id for p in previous_posts)
+            relevant_users = [
+                {"username": us.summarized_user_username, "summary": us.summary}
+                for uid in unique_previous_users
+                if (us := user.user_summaries.get(uid))
+            ]
 
-            engage_prompt = dspy.Predict(ThreadEngagementPrompt)
+            relevant_documents = ""
+            if thread.summary and self._document_embeddings is not None:
+                relevant_documents = "\n".join(self._document_embeddings(thread.summary))
+
             engagement = engage_prompt(
                 user=user_data,
                 forum=forum_data,
                 thread=thread.title,
                 thread_summary=thread.summary or "",
-                thread_post_history='\n'.join([f"{post[0].author.username}: {post[1]}" for post in previous_post_summaries]),
+                thread_post_history=thread_post_history,
                 relevant_users=relevant_users,
                 relevant_documents=relevant_documents,
                 emotional_reaction=emotional_reaction,
@@ -502,17 +506,13 @@ class Simulation:
             if not engagement.should_engage:
                 continue
 
-            response = engagement.response.strip()
-
-            post = Post(
+            added_posts.append(Post(
                 thread=thread,
                 author=user,
-                content=response,
+                content=engagement.response.strip(),
                 reply_to=engagement.reply_to.strip() if engagement.reply_to else "",
                 created_tick=self._time
-            )
-
-            added_posts.append(post)
+            ))
 
         if random.random() < self.thread_creation_chance:
             foci = [

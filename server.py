@@ -256,6 +256,7 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
             user.viewed_posts[pid] = ViewedPost(
                 post_id=vp.get("post_id", pid),
                 view_date=int(vp.get("view_date", 0)),
+                author_username=vp.get("author_username", ""),
                 summary=vp.get("summary"),
             )
 
@@ -264,6 +265,7 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
                 user_id=us.get("user_id", uid),
                 update_tick=int(us.get("update_tick", 0)),
                 last_updated=int(us.get("last_updated", 0)),
+                summarized_user_username=us.get("summarized_user_username", ""),
                 summary=us.get("summary", ""),
             )
 
@@ -343,6 +345,7 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
             for doc in sim.documents.values()
         ]
 
+    sim._rebuild_index()
     return sim
 
 
