@@ -91,14 +91,21 @@ class ThreadReasoningPrompt(dspy.Signature):
     Think through how this user would react to this thread. Output pure reasoning — no post text.
     Be exhaustive: the write step will only see your outputs, not the thread itself.
 
+    IMPORTANT: Before deciding stance, explicitly check the user's personality and opinions
+    against what is being claimed in the thread. If the user holds opinions that contradict
+    what others are saying, they should push back — do not smooth this into agreement.
+    A contrarian disagrees. A skeptic questions. An enthusiast defends. Honor the personality.
+
     should_engage: whether this user would bother responding at all given their dedication,
         how many times they've already posted, and how much the thread interests them.
     reply_to: exact username of the person they are directly addressing, or empty string
         if they are speaking to the thread generally.
     emotional_reaction: specific, visceral reaction — not just a label ('annoyed') but
         what exactly triggered it and why this user in particular would feel that way.
-    stance: full position — which specific claims in the thread they agree or disagree with,
-        which arguments they find compelling or weak, and why their personality leads them there.
+    stance: full position — explicitly state whether this user AGREES, DISAGREES, or is NEUTRAL,
+        name which specific claims trigger that response, and explain why their personality
+        and opinions lead them there. Do not default to agreement — if their profile says
+        they would push back, they push back.
     key_point: detailed brief for the post — the argument they will make, any concrete example
         or reference they would use, the emotional register (rant, deadpan, enthusiastic, etc.),
         and how they want the reader to feel after reading it. Two to four sentences.
@@ -417,7 +424,7 @@ class Simulation:
 
         # Hoist DSPy module instantiation outside the per-thread loop
         decide_view_thread = dspy.Predict(DecideViewThreadPrompt)
-        thread_reasoning = dspy.Predict(ThreadReasoningPrompt)
+        thread_reasoning = dspy.ChainOfThought(ThreadReasoningPrompt)
         write_post = dspy.Predict(WritePostPrompt)
         generate_user_summary = dspy.Predict(GenerateUserSummaryPrompt)
 
