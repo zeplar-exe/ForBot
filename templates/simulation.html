@@ -3,6 +3,8 @@
 {% block crumbs %}/ <a href="/sim/{{ sim_id }}">{{ forum.name }}</a>{% endblock %}
 {% block header_actions %}{% include 'partials/header_controls.html' %}{% endblock %}
 {% block content %}
+  {% include 'partials/recent_activity.html' %}
+
   <h1>{{ forum.name }}</h1>
   <div class="muted small" style="margin-bottom:12px;">created {{ forum.created_display }}</div>
 

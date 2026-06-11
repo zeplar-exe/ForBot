@@ -15,6 +15,7 @@
     <div class="modal">
       <h3>Create User</h3>
       <form hx-post="/sim/{{ sim_id }}/users" hx-target="#user-list" hx-swap="outerHTML"
+            hx-disabled-elt=".sim-act"
             data-close-on-success="add-user-modal">
         <label><span class="lbl">Username</span><input name="username"></label>
         <label><span class="lbl">Signature</span><input name="signature"></label>
@@ -24,7 +25,7 @@
         <label><span class="lbl">Active end</span><input type="number" min="0" max="23" name="active_end" value="23"></label>
         <div class="modal-actions">
           <button type="button" onclick="toggleModal('add-user-modal', false)">Cancel</button>
-          <button class="primary" type="submit">Create</button>
+          <button class="primary sim-act" type="submit">Create</button>
         </div>
       </form>
     </div>
@@ -35,6 +36,7 @@
     <div class="modal">
       <h3>Edit User</h3>
       <form hx-post="/sim/{{ sim_id }}/user-update" hx-target="#user-list" hx-swap="outerHTML"
+            hx-disabled-elt=".sim-act"
             data-close-on-success="edit-user-modal">
         <input type="hidden" name="user_id" id="edit-user-id">
         <label><span class="lbl">Username</span><input name="username" id="edit-user-username"></label>
@@ -45,7 +47,7 @@
         <label><span class="lbl">Active end</span><input type="number" min="0" max="23" name="active_end" id="edit-user-end"></label>
         <div class="modal-actions">
           <button type="button" onclick="toggleModal('edit-user-modal', false)">Cancel</button>
-          <button class="primary" type="submit">Save</button>
+          <button class="primary sim-act" type="submit">Save</button>
         </div>
       </form>
     </div>

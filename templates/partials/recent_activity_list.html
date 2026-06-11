@@ -1,0 +1,15 @@
+<div id="recent-list" class="recent-list"
+     hx-get="/sim/{{ sim_id }}/recent-activity"
+     hx-trigger="every 6s"
+     hx-swap="outerHTML">
+  {% for u in recently_active %}
+  <div class="recent-row{% if loop.index > 15 %} extra{% endif %}">
+    {% if u.avatar %}<img class="avatar-sm" src="{{ u.avatar }}" alt="">{% else %}<span class="avatar-sm"></span>{% endif %}
+    <span class="recent-name grow">{{ u.username }}</span>
+    <span class="recent-ago muted small">{{ u.label }}</span>
+  </div>
+  {% endfor %}
+  {% if not recently_active %}
+  <div class="recent-empty muted small">No activity yet</div>
+  {% endif %}
+</div>

@@ -45,7 +45,6 @@ def sim_to_dict(sim, sim_id: str) -> Dict[str, Any]:
                     "post_id": vp.post_id,
                     "view_date": vp.view_date,
                     "author_username": vp.author_username,
-                    "summary": vp.summary,
                 }
                 for pid, vp in u.viewed_posts.items()
             },

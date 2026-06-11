@@ -41,11 +41,40 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-lm = dspy.LM("ollama/qwen2.5-abliterated-q4", api_base=OLLAMA_API_BASE, temperature=0.7,
-             stop=["### User:", "### Human:", "\nHuman:", "\nUser:"])
+lm = dspy.LM("anthropic/claude-opus-4-8", api_key=os.getenv("CLAUDE_API_KEY", ""))
 embed = dspy.Embedder("ollama/nomic-embed-text", api_base=OLLAMA_API_BASE)
 dspy.configure(lm=lm, embedder=embed)
 dspy.enable_logging()
+
+
+# Newer litellm/anthropic return cache token details as pydantic objects
+# fix: (e.g. CacheCreationTokenDetails), which crashes the merge once cache reads populate
+# Normalize pydantic objects to plain dicts before merging.
+from dspy.utils.usage_tracker import UsageTracker
+
+
+def _merge_usage_entries(self, usage_entry1, usage_entry2):
+    def _norm(x):
+        return x.model_dump() if hasattr(x, "model_dump") else x
+
+    usage_entry1 = _norm(usage_entry1)
+    usage_entry2 = _norm(usage_entry2)
+    if usage_entry1 is None:
+        return dict(usage_entry2) if usage_entry2 else {}
+    if usage_entry2 is None:
+        return dict(usage_entry1)
+    result = dict(usage_entry2)
+    for k, v in usage_entry1.items():
+        v = _norm(v)
+        current_v = _norm(result.get(k))
+        if isinstance(v, dict):
+            result[k] = _merge_usage_entries(self, current_v or {}, v)
+        else:
+            result[k] = (current_v or 0) + (v or 0)
+    return result
+
+
+UsageTracker._merge_usage_entries = _merge_usage_entries
 
 
 
@@ -64,7 +93,7 @@ _sh = logging.StreamHandler()
 _sh.setFormatter(_fmt)
 logger.addHandler(_fh)
 logger.addHandler(_sh)
-logger.propagate = False  # don't double-log via root
+logger.propagate = False # don't double-log via root
 
 simulations: Dict[str, Simulation] = {}
 simulations_running: set[str] = set()
@@ -100,15 +129,20 @@ def get_installed_ollama_models() -> List[str]:
 def build_lm(cfg: AIConfig) -> dspy.LM:
     is_anthropic = cfg.model.startswith("anthropic/")
 
-    kwargs: dict = {"temperature": cfg.temperature}
-    if not is_anthropic:
-        kwargs["top_p"] = cfg.top_p
-    if is_anthropic and cfg.top_k > 0:
-        kwargs["top_k"] = cfg.top_k
-    if cfg.frequency_penalty != 0.0:
-        kwargs["frequency_penalty"] = cfg.frequency_penalty
-    if cfg.presence_penalty != 0.0:
-        kwargs["presence_penalty"] = cfg.presence_penalty
+    # Opus 4.7+ rejects all sampling params (temperature/top_p/top_k) with a 400.
+    no_sampling = is_anthropic and "opus" in cfg.model
+
+    kwargs: dict = {}
+    if not no_sampling:
+        kwargs["temperature"] = cfg.temperature
+        if not is_anthropic:
+            kwargs["top_p"] = cfg.top_p
+        if is_anthropic and cfg.top_k > 0:
+            kwargs["top_k"] = cfg.top_k
+        if cfg.frequency_penalty != 0.0:
+            kwargs["frequency_penalty"] = cfg.frequency_penalty
+        if cfg.presence_penalty != 0.0:
+            kwargs["presence_penalty"] = cfg.presence_penalty
 
     if cfg.model.startswith("ollama"):
         logger.info(f"Building Ollama LM with model {cfg.model} and kwargs: {kwargs}")
@@ -154,7 +188,7 @@ def build_document_embeddings(sim: Simulation) -> Optional[dspy.Embeddings]:
         corpus.extend(chunk_document(doc.title, doc.text))
     if len(corpus) < 2:
         return None
-    return dspy.Embeddings(corpus=corpus, embedder=embed, k=20)
+    return dspy.Embeddings(corpus=corpus, embedder=embed, k=10)
 
 
 def save_simulation(sim_id: str):
@@ -256,8 +290,7 @@ def load_simulation_from_dict(data: Dict[str, Any]) -> Simulation:
             user.viewed_posts[pid] = ViewedPost(
                 post_id=vp.get("post_id", pid),
                 view_date=int(vp.get("view_date", 0)),
-                author_username=vp.get("author_username", ""),
-                summary=vp.get("summary"),
+                author_username=vp.get("author_username", "")
             )
 
         for uid, us in u.get("user_summaries", {}).items():
@@ -358,6 +391,7 @@ def load_all_simulations():
             if not sim_id:
                 sim_id = fp.stem.removeprefix("sim_")
             sim = load_simulation_from_dict(data)
+            sim._sim_id = sim_id
             simulations[sim_id] = sim
             logger.info(f"Loaded simulation {sim_id} from {fp}")
         except Exception as e:
@@ -372,6 +406,10 @@ def get_sim_or_404(sim_id: str) -> Simulation:
     if sim is None:
         raise HTTPException(status_code=404, detail="Simulation not found")
     return sim
+
+
+def is_sim_busy(sim_id: str) -> bool:
+    return sim_id in simulations_advancing or sim_id in simulations_generating
 
 
 def get_sim_or_404_running(sim_id: str, require_running: bool = False) -> Simulation:
@@ -458,6 +496,34 @@ def _users_view(sim: Simulation) -> List[Dict[str, Any]]:
     ]
 
 
+def _recently_active_view(sim: Simulation) -> List[Dict[str, Any]]:
+    last_tick: Dict[str, int] = {}
+    for p in sim.posts:
+        aid = p.author.id
+        if aid not in last_tick or p.created_tick > last_tick[aid]:
+            last_tick[aid] = p.created_tick
+
+    rows = []
+    for u in sim.users:
+        if u.id not in last_tick:
+            continue
+        hours = max(0, sim._time - last_tick[u.id])
+        if hours == 0:
+            label = "now"
+        elif hours < 24:
+            label = f"{hours}h ago"
+        else:
+            label = f"{hours // 24}d ago"
+        rows.append({
+            "username": u.username,
+            "avatar": _avatar(u.profile_picture),
+            "hours": hours,
+            "label": label,
+        })
+    rows.sort(key=lambda r: r["hours"])
+    return rows
+
+
 def _stimuli_view(sim: Simulation) -> List[Dict[str, Any]]:
     return [{"id": s.id, "text": s.text, "created_tick": s.created_tick} for s in sim.stimuli]
 
@@ -476,6 +542,7 @@ def _sim_status(sim_id: str) -> Dict[str, Any]:
         "running": sim_id in simulations_running,
         "advancing": sim_id in simulations_advancing,
         "generating": sim_id in simulations_generating,
+        "busy": sim_id in simulations_advancing or sim_id in simulations_generating,
         "current_time_display": _display_date(sim.forum, sim._time),
     }
 
@@ -512,6 +579,7 @@ def web_simulation(request: Request, sim_id: str):
         threads=_threads_view(sim),
         stimuli=_stimuli_view(sim),
         documents=_documents_view(sim),
+        recently_active=_recently_active_view(sim),
     )
 
 
@@ -629,6 +697,7 @@ def htmx_create_sim(
     sim = Simulation(forum)
 
     sim_id = generate_sim_id()
+    sim._sim_id = sim_id
     simulations[sim_id] = sim
 
     logger.info(f"Created simulation {sim_id} with forum: {sim.forum}")
@@ -661,9 +730,22 @@ def htmx_status_bar(request: Request, sim_id: str):
     return _render(request, "partials/status_bar.html", status=_sim_status(sim_id))
 
 
+@app.get("/sim/{sim_id}/recent-activity", response_class=HTMLResponse)
+def htmx_recent_activity(request: Request, sim_id: str):
+    sim = get_sim_or_404(sim_id)
+    return _render(
+        request,
+        "partials/recent_activity_list.html",
+        sim_id=sim_id,
+        recently_active=_recently_active_view(sim),
+    )
+
+
 @app.post("/sim/{sim_id}/advance", response_class=HTMLResponse)
 def htmx_advance(request: Request, sim_id: str, hours: int = Form(1)):
     get_sim_or_404_running(sim_id, require_running=True)
+    if is_sim_busy(sim_id):
+        return _render(request, "partials/status_bar.html", status=_sim_status(sim_id))
     simulations_advancing.add(sim_id)
     try:
         sim = simulations[sim_id]
@@ -770,6 +852,8 @@ def htmx_create_user(
     active_end: int = Form(23),
 ):
     sim = get_sim_or_404_running(sim_id, require_running=True)
+    if is_sim_busy(sim_id):
+        return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
     user = User(
         username=username.strip() or f"user{len(sim.users) + 1}",
         profile_picture=generate_profile_picture(),
@@ -798,6 +882,8 @@ def htmx_update_user(
     active_end: int = Form(23),
 ):
     sim = get_sim_or_404_running(sim_id, require_running=True)
+    if is_sim_busy(sim_id):
+        return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
     user = next((u for u in sim.users if u.id == user_id), None)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -820,6 +906,8 @@ def htmx_generate_controls(request: Request, sim_id: str):
 @app.post("/sim/{sim_id}/generate-users", response_class=HTMLResponse)
 def htmx_generate_users(request: Request, sim_id: str, count: int = Form(1)):
     sim = get_sim_or_404_running(sim_id, require_running=True)
+    if is_sim_busy(sim_id):
+        return _render(request, "partials/user_rows.html", sim_id=sim_id, status=_sim_status(sim_id), users=_users_view(sim))
     simulations_generating.add(sim_id)
     try:
         sim.generate_users(max(1, count))

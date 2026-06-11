@@ -13,7 +13,7 @@ type DocumentId = str
 
 @dataclass
 class AIConfig:
-    model: str = "ollama/qwen2.5-abliterated-q4"
+    model: str = "anthropic/claude-opus-4-8"
     temperature: float = 0.7
     top_p: float = 0.9
     top_k: int = 40
@@ -53,7 +53,6 @@ class ViewedPost:
     post_id: PostId
     view_date: int
     author_username: str = ""
-    summary: Optional[str] = None
 
 
 @dataclass

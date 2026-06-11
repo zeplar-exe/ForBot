@@ -1,15 +1,12 @@
-{% set gen_disabled = not status.running or status.generating %}
-<div id="generate-controls" style="display:flex; gap:8px; align-items:center;"
-     hx-get="/sim/{{ sim_id }}/generate-controls"
-     hx-trigger="every 4s"
-     hx-swap="outerHTML">
-  <button onclick="toggleModal('add-user-modal', true)" {% if not status.running %}disabled{% endif %}>Add User</button>
+{% set gen_disabled = not status.running or status.busy %}
+<div id="generate-controls" style="display:flex; gap:8px; align-items:center;">
+  <button class="sim-act" onclick="toggleModal('add-user-modal', true)" {% if gen_disabled %}disabled{% endif %}>Add User</button>
   <form hx-post="/sim/{{ sim_id }}/generate-users" hx-target="#user-list" hx-swap="outerHTML"
-        hx-disabled-elt="button"
+        hx-disabled-elt=".sim-act"
         style="display:flex; gap:6px; align-items:center; margin:0;">
-    <input type="number" name="count" min="1" value="1" style="width:56px;"
+    <input type="number" name="count" min="1" value="1" class="sim-act" style="width:56px;"
            {% if gen_disabled %}disabled{% endif %}>
-    <button class="primary" type="submit" {% if gen_disabled %}disabled{% endif %}>
+    <button class="primary sim-act" type="submit" {% if gen_disabled %}disabled{% endif %}>
       Generate (LLM) <span class="spinner indicator"></span>
     </button>
   </form>

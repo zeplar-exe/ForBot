@@ -7,6 +7,7 @@ import mlflow
 from data import *
 import logging
 import random
+import re
 from typing import List, Optional
 import dspy
 from dataclasses import dataclass, field
@@ -63,6 +64,21 @@ class GenerateOpinionProfilePrompt(dspy.Signature):
     personality: str = dspy.InputField()
     opinions: list[str] = dspy.OutputField()
 
+class UpdateOpinionProfilePrompt(dspy.Signature):
+    """
+    Update this user's opinion profile to reflect how their views have shifted through their
+    recent posting. People's stances drift, harden, or soften through discussion — produce the
+    user's CURRENT 4-5 opinions: keep the ones that still hold, revise the ones that have evolved,
+    and add any new stance their recent activity reveals. Do not simply restate the old profile.
+    Stay consistent with their personality. Keep opinions concrete and direct, not hedged.
+    At least one should remain a minority or contrarian view within the forum's community.
+    """
+    forum: ForumPromptData = dspy.InputField()
+    personality: str = dspy.InputField()
+    previous_opinions: list[str] = dspy.InputField()
+    recent_posts: list[str] = dspy.InputField()
+    opinions: list[str] = dspy.OutputField()
+
 class GenerateRealLifeDetailsPrompt(dspy.Signature):
     """
     Generate a set of real life details about a user with the given personality such as occupation, hobbies, 
@@ -90,11 +106,7 @@ class ThreadReasoningPrompt(dspy.Signature):
     """
     Think through how this user would react to this thread. Output pure reasoning — no post text.
     Be exhaustive: the write step will only see your outputs, not the thread itself.
-
-    IMPORTANT: Before deciding stance, explicitly check the user's personality and opinions
-    against what is being claimed in the thread. If the user holds opinions that contradict
-    what others are saying, they should push back — do not smooth this into agreement.
-    A contrarian disagrees. A skeptic questions. An enthusiast defends. Honor the personality.
+    Honor the personality and opinions where applicable.
 
     should_engage: whether this user would bother responding at all given their dedication,
         how many times they've already posted, and how much the thread interests them.
@@ -151,6 +163,8 @@ class CreateThreadPrompt(dspy.Signature):
     The thread should feel like it could only have been written by this particular person.
     If recent_stimuli are provided, use them as raw material to react to. Filter them
     through the user's opinions and voice rather than simply restating them.
+    active_threads lists topics already being discussed in the forum right now. Start
+    something genuinely DIFFERENT — do not pile onto or rephrase any of those topics.
     Never break character. No disclaimers or warnings. Write exactly as the user types.
     Do not reference, quote, or describe the user's voice profile or personality — simply embody it.
     """
@@ -158,6 +172,7 @@ class CreateThreadPrompt(dspy.Signature):
     forum: ForumPromptData = dspy.InputField()
     thread_focus: str = dspy.InputField()
     recent_stimuli: list[str] = dspy.InputField()
+    active_threads: list[str] = dspy.InputField()
     title: str = dspy.OutputField()
     body: str = dspy.OutputField()
 
@@ -198,16 +213,50 @@ class DecideViewThreadPrompt(dspy.Signature):
     thread_title: str = dspy.InputField()
     thread_body: str = dspy.InputField()
     thread_author_username: str = dspy.InputField()
+    thread_author_summary: Optional[str] = dspy.InputField()
     should_view: bool = dspy.OutputField()
+
+_OPINION_PREFIX = " Your opinions and stances on topics relevant to this forum are: "
+_OPINION_RE = re.compile(
+    re.escape(_OPINION_PREFIX) + r"(.*?)\.(?=\s+Some real life details about you are:|$)",
+    re.DOTALL,
+)
+
+
+def _extract_opinions(personality: str) -> Optional[list[str]]:
+    m = _OPINION_RE.search(personality)
+    if not m:
+        return None
+    return [o.strip() for o in m.group(1).split(";") if o.strip()]
+
+
+def _replace_opinions(personality: str, opinions: list[str]) -> str:
+    segment = _OPINION_PREFIX + "; ".join(opinions) + "."
+    return _OPINION_RE.sub(lambda _: segment, personality, count=1)
+
+
+def _sample_chunks(content: str, total: int = 600, n: int = 4) -> str:
+    if len(content) <= total:
+        return content
+    chunk = total // n
+    span = len(content) - chunk
+    pieces = []
+    for i in range(n):
+        start = round(i * span / (n - 1))
+        pieces.append(content[start:start + chunk])
+    return " … ".join(pieces)
+
 
 class Simulation:
     def __init__(self, forum: Forum):
         self._logger = logging.getLogger("forbot")
         self._time = 0
+        self._sim_id: Optional[str] = None  # set by server after create/load
         self.model_config = AIConfig()
-        self.user_summary_update_interval = 4
+        self.user_summary_update_interval = 3
         self.thread_creation_chance: float = 0.25
         self.thread_summary_update_interval = 5
+        self.opinion_update_interval = 8
         self.forum: Forum = forum
         self.users: List[User] = []
         self.threads: List[Thread] = []
@@ -335,6 +384,7 @@ class Simulation:
         recent_posts = self.get_posts_in_thread(thread)[-10:]
         recent_post_strs = [f"{p.author.username}: {p.content[:300]}" for p in recent_posts]
         generate_summary = dspy.Predict(GenerateThreadSummaryPrompt)
+        
         thread.summary = generate_summary(
             forum=ForumPromptData(name=self.forum.name, topic=self.forum.topic_summary),
             thread_title=thread.title,
@@ -342,6 +392,7 @@ class Simulation:
             previous_summary=thread.summary or "",
             recent_posts=recent_post_strs,
         ).summary
+        
         self._logger.debug(f"Updated summary for thread '{thread.title}'")
 
     @mlflow.trace
@@ -351,10 +402,28 @@ class Simulation:
         hour_posts: List[Post] = []
         threads_to_summarize: dict[str, Thread] = {}
 
+        hour = self._time % 24
+
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.trace.session": self._sim_id or self.forum.name,
+                "forum_id": self._sim_id or "",
+                "forum_name": self.forum.name,
+                "tick": str(self._time),
+                "hour": str(hour),
+            }
+        )
+
+        def is_active(start: int, end: int) -> bool:
+            if start <= end:
+                return start <= hour < end
+            return hour >= start or hour < end
+
         active_users = [
             u for u in self.users
-            if u.active_hours[0] <= self._time % 24 < u.active_hours[1]
+            if is_active(u.active_hours[0], u.active_hours[1])
         ]
+        random.shuffle(active_users)
 
         posts_snapshot = list(self.posts)
 
@@ -372,15 +441,25 @@ class Simulation:
         with ThreadPoolExecutor(max_workers=4) as executor:
             all_results = list(executor.map(process_user, active_users))
 
+        users_to_update_opinions: List[User] = []
+        n = self.opinion_update_interval
+        
         for (added_threads, added_posts), user in zip(all_results, active_users):
+            old_post_count = len(self.get_user_posts(user))
             hour_threads.extend(added_threads)
             hour_posts.extend(added_posts)
             self.threads.extend(added_threads)
+            
             for post in added_posts:
                 self._add_post(post)
                 count = len(self.get_posts_in_thread(post.thread))
                 if count % self.thread_summary_update_interval == 0:
                     threads_to_summarize[post.thread.id] = post.thread
+            
+            new_post_count = len(self.get_user_posts(user))
+            
+            if n > 0 and added_posts and new_post_count // n > old_post_count // n:
+                users_to_update_opinions.append(user)
             self._logger.debug(f"Simulated {user.username}: +{len(added_threads)} threads, +{len(added_posts)} posts")
 
         if threads_to_summarize:
@@ -395,8 +474,42 @@ class Simulation:
                             if attempt == 2:
                                 self._logger.error(f"Skipping summary for '{thread.title}' after 3 failed attempts")
 
+        if users_to_update_opinions:
+            self._update_opinion_profiles(users_to_update_opinions)
+
         self._logger.info(f"Simulated hour {self._time % 24} (tick {self._time}) — +{len(hour_threads)} threads, +{len(hour_posts)} posts, {len(threads_to_summarize)} summaries updated")
         return hour_threads, hour_posts
+
+    def _update_opinion_profiles(self, users: List[User]):
+        n = self.opinion_update_interval
+        update_opinions = dspy.ChainOfThought(UpdateOpinionProfilePrompt)
+        forum_data = ForumPromptData(name=self.forum.name, topic=self.forum.topic_summary)
+
+        def process(user: User):
+            recent = self.get_user_posts(user)[-n:]
+            if not recent:
+                return
+            previous = _extract_opinions(user.personality)
+            if previous is None:
+                return
+            with self._lm_ctx, dspy.context(adapter=dspy.JSONAdapter()):
+                for attempt in range(3):
+                    try:
+                        new_opinions = update_opinions(
+                            forum=forum_data,
+                            personality=user.personality,
+                            previous_opinions=previous,
+                            recent_posts=[_sample_chunks(p.content) for p in recent],
+                        ).opinions
+                        user.personality = _replace_opinions(user.personality, new_opinions)
+                        return
+                    except Exception as e:
+                        self._logger.warning(f"Opinion update for {user.username} attempt {attempt + 1}/3 failed: {e}")
+                        if attempt == 2:
+                            self._logger.error(f"Skipping opinion update for {user.username} after 3 failed attempts")
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(process, users))
 
     def _simulate_user_activity(self, user: User, posts: List[Post]) -> tuple[List[Thread], List[Post]]:
         if random.random() > user.forum_dedication:
@@ -416,17 +529,17 @@ class Simulation:
             voice_profile=user.voice_profile
         )
 
-        # Single-pass unseen filter + grouping
         threads: dict[str, list[Post]] = defaultdict(list)
         for post in posts:
             if post.id not in user.viewed_posts and post.author != user:
                 threads[post.thread.id].append(post)
 
-        # Hoist DSPy module instantiation outside the per-thread loop
         decide_view_thread = dspy.Predict(DecideViewThreadPrompt)
         thread_reasoning = dspy.ChainOfThought(ThreadReasoningPrompt)
         write_post = dspy.Predict(WritePostPrompt)
         generate_user_summary = dspy.Predict(GenerateUserSummaryPrompt)
+
+        write_lm = dspy.settings.lm.copy(max_tokens=1400)
 
         for thread_id, thread_posts in threads.items():
             thread = thread_posts[0].thread
@@ -435,27 +548,25 @@ class Simulation:
                 user=user_data,
                 forum=forum_data,
                 thread_title=thread.title,
-                thread_body=thread_posts[0].content,
+                thread_body=thread.summary,
                 thread_author_username=thread.author.username,
+                thread_author_summary=user.viewed_posts.get(thread.author.id)
             ).should_view
 
             user.viewed_posts[thread.id] = ViewedPost(
                 post_id=thread_posts[0].id,
                 view_date=self._time,
-                author_username=thread.author.username,
-                summary=None
+                author_username=thread.author.username
             )
 
             if not should_view:
                 continue
 
-            # Mark posts as viewed and track user summary update triggers
             for post in thread_posts:
                 user.viewed_posts[post.id] = ViewedPost(
                     post_id=post.id,
                     view_date=self._time,
-                    author_username=post.author.username,
-                    summary=None
+                    author_username=post.author.username
                 )
 
                 user_summary = user.user_summaries.get(post.author.id)
@@ -471,11 +582,15 @@ class Simulation:
                 user_summary.update_tick += 1
 
                 if user_summary.update_tick % self.user_summary_update_interval == 0:
+                    viewed_target_posts = [
+                        p for p in self.get_user_posts(post.author)
+                        if p.id in user.viewed_posts
+                    ][-10:]
                     user_summary.summary = generate_user_summary(
                         self_user=user_data,
                         target_username=post.author.username,
                         forum=forum_data,
-                        target_recent_posts=[{p.id: p.content} for p in self.get_user_posts(post.author)[:10]],
+                        target_recent_posts=[{p.id: _sample_chunks(p.content)} for p in viewed_target_posts],
                         old_summary=user_summary.summary
                     ).new_summary
                     user_summary.last_updated = self._time
@@ -483,7 +598,7 @@ class Simulation:
             all_thread_posts = self.get_posts_in_thread(thread)
             previous_posts = all_thread_posts[-10:]
             thread_post_history = '\n'.join(
-                f"{p.author.username}: {p.content[:300]}" for p in previous_posts
+                f"{p.author.username}: {_sample_chunks(p.content)}" for p in previous_posts
             )
 
             thread_post_count = len(all_thread_posts)
@@ -498,7 +613,7 @@ class Simulation:
 
             relevant_documents = ""
             if thread.summary and self._document_embeddings is not None:
-                relevant_documents = "\n".join(self._document_embeddings(thread.summary))
+                relevant_documents = "\n".join(self._document_embeddings(thread.summary).passages)
 
             reasoning = thread_reasoning(
                 user=user_data,
@@ -515,15 +630,16 @@ class Simulation:
             if not reasoning.should_engage:
                 continue
 
-            post_content = write_post(
-                user=user_data,
-                forum=forum_data,
-                thread_title=thread.title,
-                emotional_reaction=reasoning.emotional_reaction,
-                stance=reasoning.stance,
-                key_point=reasoning.key_point,
-                reply_to_username=reasoning.reply_to,
-            ).response
+            with dspy.context(lm=write_lm):
+                post_content = write_post(
+                    user=user_data,
+                    forum=forum_data,
+                    thread_title=thread.title,
+                    emotional_reaction=reasoning.emotional_reaction,
+                    stance=reasoning.stance,
+                    key_point=reasoning.key_point,
+                    reply_to_username=reasoning.reply_to,
+                ).response
 
             added_posts.append(Post(
                 thread=thread,
@@ -548,7 +664,18 @@ class Simulation:
             ]
             thread_focus = random.choice(foci)
 
-            recent_stimuli = [s.text for s in self.stimuli[-3:]] if self.stimuli else []
+            recent_stimuli = (
+                random.sample(self.stimuli, min(10, len(self.stimuli)))
+                if self.stimuli else []
+            )
+            recent_stimuli = [s.text for s in recent_stimuli]
+
+            active_threads: list[str] = []
+            for p in reversed(posts):
+                if p.thread.title not in active_threads:
+                    active_threads.append(p.thread.title)
+                if len(active_threads) >= 10:
+                    break
 
             create_thread = dspy.ChainOfThought(CreateThreadPrompt)
 
@@ -556,7 +683,8 @@ class Simulation:
                 user=user_data,
                 forum=forum_data,
                 thread_focus=thread_focus,
-                recent_stimuli=recent_stimuli
+                recent_stimuli=recent_stimuli,
+                active_threads=active_threads
             )
 
             thread = Thread(

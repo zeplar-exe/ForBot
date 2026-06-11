@@ -121,6 +121,24 @@
       animation: spin .7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* Recently active sidebar */
+    .recent-panel {
+      position: fixed; top: 76px; right: 16px; width: 232px; z-index: 20;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 0;
+    }
+    .recent-head { display: flex; align-items: center; gap: 8px; padding: 2px 12px 8px; border-bottom: 1px solid var(--border); }
+    .recent-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .recent-toggle { font-size: 11px; padding: 2px 8px; flex-shrink: 0; }
+    .recent-list { padding: 4px 0; }
+    .recent-panel.expanded .recent-list { max-height: calc(100vh - 140px); overflow-y: auto; }
+    .recent-row { display: flex; align-items: center; gap: 8px; padding: 5px 12px; }
+    .recent-row .recent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .recent-row .recent-ago { flex-shrink: 0; }
+    .recent-row.extra { display: none; }
+    .recent-panel.expanded .recent-row.extra { display: flex; }
+    .recent-empty { padding: 8px 12px; }
+    @media (max-width: 760px) { .recent-panel { display: none; } }
   </style>
 </head>
 <body>
@@ -139,6 +157,13 @@
       const el = document.getElementById(id);
       if (!el) return;
       el.classList.toggle('open', open === undefined ? !el.classList.contains('open') : open);
+    }
+    function toggleRecent() {
+      const p = document.getElementById('recent-activity');
+      if (!p) return;
+      const expanded = p.classList.toggle('expanded');
+      const btn = p.querySelector('.recent-toggle');
+      if (btn) btn.textContent = expanded ? 'Show less' : 'Show all';
     }
     // Close a modal after a successful htmx form submit originating inside it.
     document.body.addEventListener('htmx:afterRequest', function (e) {

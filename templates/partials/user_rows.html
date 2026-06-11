@@ -8,7 +8,7 @@
         {% if u.signature %}<div class="small muted">{{ u.signature }}</div>{% endif %}
         <div class="muted small">active {{ u.active_start }}:00–{{ u.active_end }}:00</div>
       </div>
-      <button {% if not status.running %}disabled{% endif %}
+      <button class="sim-act" {% if not status.running or status.busy %}disabled{% endif %}
               onclick="openEditUser(this)"
               data-id="{{ u.id }}"
               data-username="{{ u.username }}"

@@ -1,0 +1,9 @@
+<aside id="recent-activity" class="recent-panel">
+  <div class="recent-head">
+    <span class="recent-title grow">Recently Active</span>
+    {% if recently_active|length > 15 %}
+    <button type="button" class="recent-toggle" onclick="toggleRecent()">Show all</button>
+    {% endif %}
+  </div>
+  {% include 'partials/recent_activity_list.html' %}
+</aside>

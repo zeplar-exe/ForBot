@@ -1,12 +1,13 @@
-{% set adv_disabled = not status.running or status.advancing %}
+{% set adv_disabled = not status.running or status.busy %}
 {% include 'partials/status_bar.html' %}
 <form hx-post="/sim/{{ status.sim_id }}/advance"
       hx-target="#sim-status" hx-swap="outerHTML"
-      hx-disabled-elt="button"
+      hx-disabled-elt=".sim-act"
       style="margin:0;">
-  <button class="primary advance-btn" type="submit" {% if adv_disabled %}disabled{% endif %}>
+  <button class="primary advance-btn sim-act" type="submit" {% if adv_disabled %}disabled{% endif %}>
     Advance
     <input type="number" name="hours" min="1" value="1"
+           class="sim-act"
            {% if adv_disabled %}disabled{% endif %}
            onclick="event.stopPropagation()"
            style="width:40px; padding:2px 4px; margin:0 4px; text-align:center;
